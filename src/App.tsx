@@ -6,7 +6,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import RobotWorkspace from './pages/RobotWorkspace';
-import GoogleCallback from './pages/GoogleCallback';
+
 import AgentInfo from './pages/AgentInfo';
 import BrainPage from './pages/BrainPage';
 import SolutionsPage from './pages/SolutionsPage';
@@ -56,7 +56,7 @@ function App() {
                 </PrivateRoute>
               }
             />
-            <Route path="/auth/google/callback" element={<GoogleCallback />} />
+
             <Route path="/agent/:id" element={<><Navbar /><AgentInfo /><Footer /></>} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
 

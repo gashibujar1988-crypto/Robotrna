@@ -3,9 +3,9 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    User, Globe, Cpu, Bell,
+    User, Globe, Cpu,
     Linkedin, Facebook, Instagram, Twitter,
-    ToggleRight, Sparkles
+    Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ProfileTab from '../components/ProfileTab';
@@ -210,38 +210,7 @@ const MotherConfigTab = () => {
     );
 };
 
-// --- Old Profile Tab (Deprecated) ---
-const OldProfileTab = ({ user }: { user: any }) => (
-    <div className="space-y-6">
-        <h2 className="text-2xl font-bold mb-6">Profilinställningar</h2>
-        <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-r from-pink-500 to-violet-500 flex items-center justify-center text-white text-3xl font-bold shadow-lg">
-                {user?.name?.charAt(0) || 'U'}
-            </div>
-            <div>
-                <h3 className="text-xl font-bold text-gray-900">{user?.name}</h3>
-                <p className="text-gray-500">{user?.email}</p>
-                <button className="mt-3 px-4 py-2 text-sm font-bold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-                    Ladda upp ny bild
-                </button>
-            </div>
-        </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-4">
-            <h3 className="font-bold text-gray-900 flex items-center gap-2"><Bell className="w-4 h-4" /> Aviseringar</h3>
-            {[
-                'Notifiera mig när en uppgift är klar',
-                'Skicka veckorapporter via mail',
-                'Notifiera vid säkerhetsvarningar'
-            ].map((label, i) => (
-                <div key={i} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-xl transition-colors">
-                    <span className="text-gray-600 font-medium text-sm">{label}</span>
-                    <button className="text-green-500"><ToggleRight className="w-8 h-8" /></button>
-                </div>
-            ))}
-        </div>
-    </div>
-);
 
 const SettingsPage: React.FC = () => {
     const { user } = useAuth();

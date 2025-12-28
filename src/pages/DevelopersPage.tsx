@@ -1,7 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Terminal, Code, Cpu, Shield, ArrowRight, Zap, Database, Lock } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Terminal, Code, Cpu, Shield, Zap, Database } from 'lucide-react';
 
 const CodeBlock = ({ code }: { code: string }) => (
     <div className="bg-[#1e1e1e] rounded-xl p-6 font-mono text-sm text-gray-300 overflow-x-auto border border-gray-800 shadow-xl">

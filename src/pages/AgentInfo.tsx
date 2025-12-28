@@ -490,6 +490,7 @@ const AgentInfo: React.FC = () => {
                 isOpen={isPaymentModalOpen}
                 onClose={() => setIsPaymentModalOpen(false)}
                 agentName={agent.name}
+                price={(agent as any).price || 2495}
                 onSuccess={handlePaymentSuccess}
             />
 

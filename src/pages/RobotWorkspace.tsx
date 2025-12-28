@@ -1,19 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Share2, Mic, Paperclip, Send, X, Globe, Code, Image as ImageIcon, MessageSquare, Play, Pause, ChevronRight, Check, BrainCircuit, Search, RotateCw, Reply, Smile, Sparkles, Plus, Volume2, VolumeX, ArrowLeft, LayoutTemplate } from 'lucide-react';
+import { Share2, Mic, Paperclip, Send, X, Image as ImageIcon, ChevronRight, Check, Search, Reply, Sparkles, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { robots as robotsApi } from '../api/client';
 import { agents } from '../data/agents';
-import robotSocial from '../assets/robot_social.png';
 import robotResearch from '../assets/robot_research.png';
-import robotAdmin from '../assets/robot_admin.png';
-import robotLeads from '../assets/robot_leads.png';
-import robotSupport from '../assets/robot_support.png';
-import robotCreative from '../assets/robot_creative.png';
-import robotWebDev from '../assets/robot_webdev.png';
 import { useAuth } from '../context/AuthContext';
-import { useGoogleLogin } from '@react-oauth/google';
-import axios from 'axios';
 
 // TypeScript Interfaces
 interface TaskStep {
@@ -72,6 +63,9 @@ interface Message {
     images?: string[]; // Multiple images support
     agentName?: string;
     agentGradient?: string;
+    meta?: any;
+    isSystem?: boolean;
+    avatar?: string;
 }
 
 const RobotWorkspace: React.FC = () => {
@@ -81,12 +75,19 @@ const RobotWorkspace: React.FC = () => {
     const [robot, setRobot] = useState<any>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [_loading, setLoading] = useState(false);
     const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
-
     const [isListening, setIsListening] = useState(false);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [showOnboarding, setShowOnboarding] = useState(false);
+    const recognitionRef = useRef<any>(null);
+    const silenceTimer = useRef<any>(null);
+    const [viewMode, setViewMode] = useState<'chat' | 'support'>('chat');
+    const [level] = useState(1);
+    const [googleToken] = useState<string | null>(localStorage.getItem('google_access_token'));
+    const [lastImage, setLastImage] = useState<string | null>(null);
+    const [conversationContext, setConversationContext] = useState<string | null>(null);
+    const [linkedinConnected] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isSoundEnabled, setIsSoundEnabled] = useState(false);
 
     // Email GUI State
     const [emailDraft, setEmailDraft] = useState<{
@@ -100,33 +101,7 @@ const RobotWorkspace: React.FC = () => {
         status: 'writing' | 'ready' | 'sending' | 'sent';
     } | null>(null);
 
-    // Multi-Agent State
-    const [activeAgents, setActiveAgents] = useState<any[]>([]);
-    const [isAddAgentOpen, setIsAddAgentOpen] = useState(false);
 
-    // Text-to-Speech State
-    const [isSoundEnabled, setIsSoundEnabled] = useState(false);
-    const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-    const currentAudioRef = useRef<HTMLAudioElement | null>(null);
-
-    // Gamification State (Per-Agent)
-    const [xp, setXp] = useState(() => {
-        const allXp = JSON.parse(localStorage.getItem('agent_xp_data') || '{}');
-        return allXp[id!] || 0;
-    });
-    const [level, setLevel] = useState(() => Math.floor(xp / 100) + 1);
-
-    // View Mode State (Chat or Support Desk)
-    const [viewMode, setViewMode] = useState<'chat' | 'support'>('chat');
-
-    // Pixel's Memory State
-    const [lastImage, setLastImage] = useState<string | null>(null);
-
-    const xpProgress = xp % 100;
-    const scrollContainerRef = useRef<HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const recognitionRef = useRef<any>(null);
-    const silenceTimer = useRef<any>(null);
 
     const handleFileClick = () => fileInputRef.current?.click();
 
@@ -143,11 +118,8 @@ const RobotWorkspace: React.FC = () => {
         setIsListening(true);
         try { recognitionRef.current?.start(); } catch (e) { console.log("Manual start error:", e); }
     };
-    const stopListening = () => { setIsListening(false); recognitionRef.current?.stop(); };
 
-    // AI BRAIN STATE (Memory)
-    const [conversationContext, setConversationContext] = useState<string | null>(null);
-    const [linkedinConnected, setLinkedinConnected] = useState(false); // New Tool State
+
 
     // HELPER: Add Task Programmatically
     const handleAddTask = (title: string, steps: string[]) => {
@@ -166,59 +138,11 @@ const RobotWorkspace: React.FC = () => {
     // Task Management State
     const [tasks, setTasks] = useState<any[]>([]); // Start empty to clear old status
 
-    const dismissTask = (taskId: any) => {
-        setTasks(prev => {
-            const newTasks = prev.filter(t => t.id !== taskId);
-            localStorage.setItem('user_tasks', JSON.stringify(newTasks));
-            return newTasks;
-        });
-    };
 
-    const addXp = (amount: number) => {
-        const newXp = xp + amount;
-        setXp(newXp);
-        const allXp = JSON.parse(localStorage.getItem('agent_xp_data') || '{}');
-        allXp[id!] = newXp;
-        localStorage.setItem('agent_xp_data', JSON.stringify(allXp));
 
-        const newLevel = Math.floor(newXp / 100) + 1;
-        if (newLevel > level) {
-            setLevel(newLevel);
-            speakMessage(`Grattis! Jag har nått nivå ${newLevel}. Mina förmågor ökar.`, robot?.name || 'System');
-        }
-    };
 
-    const updateTaskStep = (taskIndex: number, stepIndex: number, completed: boolean) => {
-        setTasks(prev => {
-            const newTasks = [...prev];
-            if (!newTasks[taskIndex] || !newTasks[taskIndex].steps[stepIndex]) return prev;
 
-            const taskId = newTasks[taskIndex].id;
 
-            newTasks[taskIndex].steps[stepIndex].status = completed ? 'completed' : 'pending';
-
-            const total = newTasks[taskIndex].steps.length;
-            const done = newTasks[taskIndex].steps.filter((s: any) => s.status === 'completed').length;
-            newTasks[taskIndex].progress = Math.round((done / total) * 100);
-
-            localStorage.setItem('user_tasks', JSON.stringify(newTasks));
-
-            if (newTasks[taskIndex].progress === 100 && completed) {
-                addXp(50);
-                try {
-                    const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-                    audio.volume = 0.4;
-                    audio.play().catch(() => { });
-                } catch (e) { }
-
-                setTimeout(() => {
-                    dismissTask(taskId);
-                }, 3000);
-            }
-
-            return newTasks;
-        });
-    };
 
     const getLevelBg = (lvl: number) => {
         if (lvl >= 50) return 'bg-purple-900/30';
@@ -255,30 +179,7 @@ const RobotWorkspace: React.FC = () => {
         window.speechSynthesis.speak(utterance);
     };
 
-    // Google Integration
-    const [googleToken, setGoogleToken] = useState<string | null>(localStorage.getItem('google_access_token'));
-    const [hasAcceptedTerms, setHasAcceptedTerms] = useState(() => localStorage.getItem('terms_accepted') === 'true');
-    const [termsAgreed, setTermsAgreed] = useState(false);
 
-    const googleLogin = useGoogleLogin({
-        onSuccess: (codeResponse) => {
-            console.log("Login Success:", codeResponse);
-            setGoogleToken(codeResponse.access_token);
-            localStorage.setItem('google_access_token', codeResponse.access_token);
-            if (codeResponse.scope) console.log("Scopes:", codeResponse.scope);
-            const hasTerms = localStorage.getItem('terms_accepted');
-            const tempAgreed = localStorage.getItem('terms_agreed_temp');
-            if (!hasAcceptedTerms && tempAgreed) {
-                localStorage.setItem('terms_accepted', 'true');
-                setHasAcceptedTerms(true);
-                speakMessage(`Välkommen! Jag har nu fullmakt att arbeta för dig.`, "Dexter");
-            } else {
-                speakMessage("Jag är nu uppkopplad mot ditt Google-konto!", "Dexter");
-            }
-        },
-        scope: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly',
-        onError: () => speakMessage("Kunde inte ansluta till Google.", "System")
-    });
 
     // --- SUPPORT DESK COMPONENT ---
     const SupportDesk = () => {
@@ -529,10 +430,7 @@ const RobotWorkspace: React.FC = () => {
         );
     };
 
-    const executeRealAction = (task: any, stepIndex: number) => {
-        alert("Action Executed!");
-        updateTaskStep(task.id, stepIndex, true);
-    };
+
 
     useEffect(() => {
         const loadRobot = async () => {
@@ -785,8 +683,8 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                 setLoading(true);
 
                 // 1. Initial Consultation (Who is this for?)
-                if (!window.hasAskedTargetAudience) {
-                    window.hasAskedTargetAudience = true;
+                if (!(window as any).hasAskedTargetAudience) {
+                    (window as any).hasAskedTargetAudience = true;
                     setMessages(prev => [...prev, {
                         id: Date.now().toString(),
                         sender: 'bot',

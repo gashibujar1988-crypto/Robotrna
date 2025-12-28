@@ -2,13 +2,13 @@ import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, FileText, Image as ImageIcon, Database, Loader, CheckCircle, Heart } from 'lucide-react';
 import motherImage from '../assets/mother_gen.png';
-import { useAuth } from '../context/AuthContext';
+
 import { brain } from '../api/client';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 
 const BrainPage: React.FC = () => {
-    const { isAuthenticated } = useAuth();
+    // const { isAuthenticated } = useAuth();
     const [uploading, setUploading] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
     const [error, setError] = useState('');
@@ -37,32 +37,7 @@ const BrainPage: React.FC = () => {
         }
     };
 
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
 
-        if (!isAuthenticated) return;
-
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            const file = e.dataTransfer.files[0];
-            setUploading(true);
-            setError('');
-
-            brain.upload(file).then(() => {
-                setUploadSuccess(true);
-                setTimeout(() => setUploadSuccess(false), 3000);
-            }).catch(() => {
-                setError('Kunde inte ladda upp filen.');
-            }).finally(() => {
-                setUploading(false);
-            });
-        }
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-    };
 
     return (
         <div className="min-h-screen bg-white">

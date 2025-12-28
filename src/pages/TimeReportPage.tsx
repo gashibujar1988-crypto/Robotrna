@@ -3,7 +3,7 @@ import { logSystemEvent } from '../utils/logger';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Car, MapPin, Camera, Save, RefreshCw, Calendar, History, FileText, Check, Upload, Loader2, DollarSign } from 'lucide-react';
+import { Clock, Car, MapPin, Camera, Save, RefreshCw, Calendar, History, FileText, Check } from 'lucide-react';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { getAvailableModel } from "../api/client";
 

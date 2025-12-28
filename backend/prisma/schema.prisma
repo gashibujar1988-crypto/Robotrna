@@ -1,0 +1,69 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String     @id @default(uuid())
+  email              String     @unique
+  password           String
+  name               String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  googleAccessToken  String?
+  googleId           String?    @unique
+  googleRefreshToken String?
+  tokenExpiry        DateTime?
+  documents          Document[]
+  robots             Robot[]
+}
+
+model Robot {
+  id        String    @id @default(uuid())
+  name      String
+  type      String
+  status    String    @default("idle")
+  config    String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tasks     Task[]
+  messages  Message[]
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  sender    String   // 'user' or 'bot'
+  createdAt DateTime @default(now())
+  robotId   String
+  robot     Robot    @relation(fields: [robotId], references: [id])
+}
+
+model Document {
+  id        String   @id @default(uuid())
+  title     String
+  type      String
+  path      String
+  size      Int
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Task {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  robotId     String
+  robot       Robot    @relation(fields: [robotId], references: [id])
+  read        Boolean  @default(false)
+}

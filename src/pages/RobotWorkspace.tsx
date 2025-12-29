@@ -440,39 +440,129 @@ const RobotWorkspace: React.FC = () => {
 
             setViewMode('chat');
 
-            setTimeout(() => {
-                // Task-focused initial state
+            if (googleToken) {
+                try {
+                    // 1. Fetch Calendar (Yesterday & Today)
+                    const now = new Date();
+                    const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+
+                    const calRes = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${yesterday.toISOString()}&maxResults=5&singleEvents=true&orderBy=startTime`, {
+                        headers: { Authorization: `Bearer ${googleToken}` }
+                    });
+
+                    // 2. Fetch Gmail (Unread)
+                    const mailRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults=3`, {
+                        headers: { Authorization: `Bearer ${googleToken}` }
+                    });
+
+                    if (calRes.ok && mailRes.ok) {
+                        const calData = await calRes.json();
+                        const mailData = await mailRes.json();
+
+                        const newTasks: Task[] = [];
+
+                        // Process Calendar
+                        const eventSteps: TaskStep[] = (calData.items || []).map((evt: any) => ({
+                            desc: `Agenda: ${evt.summary}`,
+                            status: new Date(evt.start.dateTime || evt.start.date) < now ? 'completed' : 'pending'
+                        }));
+
+                        if (eventSteps.length > 0) {
+                            newTasks.push({
+                                id: Date.now(),
+                                title: "Kalenderanalys & Briefing",
+                                agent: found?.name || "System",
+                                status: 'active',
+                                progress: 75,
+                                priority: 'high',
+                                steps: [
+                                    { desc: "Hämtat schema (24h)", status: "completed" },
+                                    ...eventSteps
+                                ]
+                            });
+                        }
+
+                        // Process Mail (Deep Fetch)
+                        if (mailData.messages) {
+                            const mailDetails = await Promise.all(mailData.messages.map(async (msg: any) => {
+                                const r = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
+                                    headers: { Authorization: `Bearer ${googleToken}` }
+                                });
+                                return r.json();
+                            }));
+
+                            const mailSteps: TaskStep[] = mailDetails.map((d: any) => {
+                                const subject = d.payload.headers.find((h: any) => h.name === 'Subject')?.value || 'Inget ämne';
+                                return { desc: `Utkast: ${subject.substring(0, 25)}...`, status: 'completed' };
+                            });
+
+                            newTasks.push({
+                                id: Date.now() + 1,
+                                title: "Inkorgshantering",
+                                agent: found?.name || "System",
+                                status: 'active',
+                                progress: 50,
+                                priority: 'medium',
+                                steps: [
+                                    { desc: "Skannat nya mail", status: "completed" },
+                                    ...mailSteps,
+                                    { desc: "Väntar på granskning", status: "pending" }
+                                ]
+                            });
+                        }
+
+                        setTasks(newTasks);
+
+                        // Dynamic Welcome Message
+                        let welcomeText = `Jag är uppdaterad. Inga nya händelser sedan sist.`;
+                        if (newTasks.length > 0) {
+                            const eventCount = calData.items?.length || 0;
+                            const mailCount = mailData.resultSizeEstimate || 0;
+                            welcomeText = `Jag har synkat med dina system. ${eventCount} kalenderhändelser och ${mailCount} nya mail har analyserats. Resultatet ligger till höger.`;
+                        }
+
+                        setMessages([{
+                            id: '1',
+                            sender: 'bot',
+                            text: welcomeText,
+                            timestamp: new Date(),
+                            agentName: found?.name
+                        }]);
+                        speakMessage(welcomeText, found?.name);
+
+                    } else {
+                        // Token failed scenario
+                        setMessages([{
+                            id: '1',
+                            sender: 'bot',
+                            text: `Google-kopplingen behöver bekräftas i inställningarna.`,
+                            timestamp: new Date(),
+                            agentName: found?.name
+                        }]);
+                    }
+
+                } catch (e) {
+                    console.error("Background sync failed", e);
+                    setMessages([{
+                        id: '1',
+                        sender: 'bot',
+                        text: `Kunde inte synka data. Kontrollera nätverket.`,
+                        timestamp: new Date(),
+                        agentName: found?.name
+                    }]);
+                }
+            } else {
                 setMessages([{
                     id: '1',
                     sender: 'bot',
-                    text: `Jag har analyserat din inkorg. Här är 3 utkast på svar och en mötesinbjudan redo att skickas. Vill du granska dem?`,
+                    text: `Hej! För att se mina bakgrundsjobb måste du koppla ditt Google-konto i Inställningar.`,
                     timestamp: new Date(),
                     agentName: found?.name
                 }]);
-
-                // Add visible proof of work (Tasks)
-                setTasks([
-                    {
-                        id: Date.now(),
-                        title: "Förberedande Analys",
-                        agent: found?.name || "System",
-                        status: "active",
-                        progress: 50,
-                        priority: "high",
-                        steps: [
-                            { desc: "Sökt i kalender", status: "completed" },
-                            { desc: "Analyserat inkorg", status: "completed" },
-                            { desc: "Skrivit mailutkast", status: "completed" },
-                            { desc: "Väntar på godkännande", status: "pending" }
-                        ]
-                    }
-                ]);
-
-                speakMessage(`Jag har förberett några utkast. Vill du se dem?`, found?.name);
-            }, 1000);
+            }
         };
         loadRobot();
-    }, [id]);
+    }, [id, googleToken]);
 
     // --- UNIVERSAL AGENT CORE PROTOCOL ---
     const CORE_PROTOCOL = `

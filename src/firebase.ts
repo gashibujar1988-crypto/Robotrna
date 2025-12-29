@@ -20,5 +20,6 @@ const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/gmail.send');
 googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
+googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 
 export { auth, db, googleProvider };

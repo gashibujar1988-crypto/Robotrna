@@ -1,5 +1,7 @@
 import React from 'react';
 import { Terminal, Code, Cpu, Shield, Zap, Database } from 'lucide-react';
+import { seedAgentConfigs } from '../utils/seedAgentConfigs';
+import { seedGlobalSettings } from '../utils/seedGlobalSettings';
 
 const CodeBlock = ({ code }: { code: string }) => (
     <div className="bg-[#1e1e1e] rounded-xl p-6 font-mono text-sm text-gray-300 overflow-x-auto border border-gray-800 shadow-xl">
@@ -8,6 +10,15 @@ const CodeBlock = ({ code }: { code: string }) => (
 );
 
 const DevelopersPage: React.FC = () => {
+
+    const handleSeed = async () => {
+        if (confirm("Detta kommer att skriva över agent-konfigurationer och globala regler i Firestore. Vill du fortsätta?")) {
+            await seedAgentConfigs();
+            await seedGlobalSettings();
+            alert("Database seeded successfully!");
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#09090b] text-white font-sans selection:bg-purple-500/30">
             {/* Background Effects */}
@@ -37,6 +48,9 @@ const DevelopersPage: React.FC = () => {
                         </button>
                         <button className="px-8 py-3 bg-white/5 border border-white/10 text-white font-bold rounded-lg hover:bg-white/10 transition-colors">
                             Documentation
+                        </button>
+                        <button onClick={handleSeed} className="px-8 py-3 bg-purple-600 border border-purple-500 text-white font-bold rounded-lg hover:bg-purple-700 transition-colors shadow-[0_0_15px_rgba(168,85,247,0.5)]">
+                            Initialize AI Brain (Admin)
                         </button>
                     </div>
                 </div>

@@ -1,5 +1,5 @@
 import { db, auth } from '../firebase';
-import { collection, getDocs, query, where, doc, updateDoc, addDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc, addDoc, serverTimestamp, orderBy, limit, getDoc } from 'firebase/firestore';
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 // Default robots data for initialization
@@ -194,8 +194,8 @@ const api = {
         if (url.startsWith('/chat/')) {
             const robotId = url.split('/')[2];
             try {
-                // Fetch messages from subcollection
-                const messagesRef = collection(db, 'robots', robotId, 'messages');
+                // Fetch messages from USER-SCOPED subcollection
+                const messagesRef = collection(db, 'users', userId, 'chats', robotId, 'messages');
                 const q = query(messagesRef, orderBy('timestamp', 'asc'), limit(50));
                 const snapshot = await getDocs(q);
 
@@ -210,9 +210,23 @@ const api = {
                 });
                 return { data: messages };
             } catch (e) {
-                console.warn("Could not fetch messages from DB (offline mode)", e);
+                console.warn("Could not fetch messages from DB", e);
                 return { data: [] };
             }
+        }
+
+        if (url.startsWith('/agent-config/')) {
+            const agentName = url.split('/')[2];
+            try {
+                const docRef = doc(db, 'agent_configs', agentName.toLowerCase());
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    return { data: docSnap.data() };
+                }
+            } catch (e) {
+                console.warn("Failed to fetch agent config", e);
+            }
+            return { data: null };
         }
 
         console.warn(`Unmocked GET request to ${url}`);
@@ -253,16 +267,16 @@ const api = {
             const userMsg = data.message;
             let messagesRef;
 
-            // 1. Try Save User Message to DB
+            // 1. Try Save User Message to DB (User Scoped)
             try {
-                messagesRef = collection(db, 'robots', robotId, 'messages');
+                messagesRef = collection(db, 'users', userId, 'chats', robotId, 'messages');
                 await addDoc(messagesRef, {
                     content: userMsg,
                     sender: 'user',
                     timestamp: serverTimestamp()
                 });
             } catch (e) {
-                console.warn("Could not save user message to DB (offline mode)", e);
+                console.warn("Could not save user message to DB", e);
             }
 
             // 2. Call Gemini
@@ -807,33 +821,80 @@ const api = {
                     tools: tools as any
                 });
 
-                let specializedInstructions = "";
-                if (robotName === "Ledger" || robotRole.includes("Revisor")) {
-                    specializedInstructions = `
-                    **SPECIALIZED INSTRUCTIONS FOR REVISOR/LEDGER:**
-                    - You are an expert accountant and bookkeeper.
-                    - **RECEIPT SCANNING**: When the user provides an image or text from a receipt, you MUST extract: Date, Vendor, Total Amount, VAT/Moms, and Category. Then use 'append_to_sheet' to log this into their accounting spreadsheet.
-                    - **INVOICING**: If asked to create an invoice, gather the Customer Name, Items/Services, and Prices. Then generate a professional invoice using HTML and use 'send_email' to send it to the customer (or the user).
-                    - **SHEETS**: If no spreadsheet exists, use 'create_spreadsheet' titled "Företagsekonomi 2025" with headers [Date, Vendor, Category, Amount, VAT, Receipt Link].
-                    `;
+                // 2. Fetch Agent Config & Global Settings
+                let systemPrompt = "";
+                let globalRules = "";
+
+                try {
+                    const [agentSnap, globalSnap] = await Promise.all([
+                        getDoc(doc(db, 'agent_configs', robotName.toLowerCase())),
+                        getDoc(doc(db, 'settings', 'global_rules'))
+                    ]);
+
+                    if (agentSnap.exists()) {
+                        systemPrompt = agentSnap.data().system_prompt || "";
+                    } else {
+                        // Fallback
+                        const agentData = agents.find(a => a.name === robotName);
+                        systemPrompt = agentData?.fullDescription || `You are ${robotName}, a ${robotRole}.`;
+                    }
+
+                    if (globalSnap.exists()) {
+                        globalRules = globalSnap.data().rules || "";
+                    }
+                } catch (configError) {
+                    console.warn("Failed to fetch remote config", configError);
+                    // Use local fallback
+                    const agentData = agents.find(a => a.name === robotName);
+                    systemPrompt = agentData?.fullDescription || `You are ${robotName}, a ${robotRole}.`;
                 }
+
+                // 3. Fetch Recent Chat History (Context)
+                // Use the same messagesRef defined above (User Scoped)
+                let chatHistoryText = "";
+                try {
+                    if (messagesRef) {
+                        const historyQ = query(messagesRef, orderBy('timestamp', 'desc'), limit(10));
+                        const historySnap = await getDocs(historyQ);
+                        // Reverse to chronological order
+                        const historyDocs = historySnap.docs.reverse();
+                        historyDocs.forEach(d => {
+                            const data = d.data();
+                            chatHistoryText += `\n${data.sender === 'user' ? 'Användare' : robotName}: ${data.content}`;
+                        });
+                    }
+                } catch (histError) {
+                    console.warn("Failed to load history", histError);
+                }
+
+
+                // 4. Construct SUPER-PROMPT
+                const finalSystemPrompt = `
+                SYSTEM_INSTRUCTION:
+                ${systemPrompt}
+                
+                GLOBAL_RULES (STRITCA):
+                ${globalRules}
+                
+                CONTEXT (SENASTE CHATHISTORIK):
+                ${chatHistoryText}
+                
+                CURRENT_USER_INPUT:
+                "${userMsg}"
+                
+                IMPORTANT RULES:
+                1. **LANGUAGE**: You MUST reply in the SAME language as the user (Swedish or Norwegian).
+                2. **BE SMART**: Do not ask for information you already have. Use the history.
+                3. **PROACTIVE**: Do not ask "should I do this?". Just do it if the request is clear.
+                4. **TOOLS**: You have access to send emails, send SMS, check calendar, create events, manage Docs/Sheets, find places, analyze web traffic, and manage Google Tag Manager (GTM). Use them!
+                `;
 
                 let history: any[] = [
                     {
                         role: "user",
                         parts: [{
-                            text: `You are ${robotName}, a ${robotRole}. 
-                        ${specializedInstructions}
-                        IMPORTANT RULES:
-                        1. **LANGUAGE**: You MUST reply in the SAME language as the user (Swedish or Norwegian). Never switch to English unless the user speaks English.
-                        2. **BE SMART**: Do not ask for information you already have. If the user asks you to do something and you have the tools, DO IT immediately.
-                        3. **PROACTIVE**: Do not ask "should I do this?". Just do it if the request is clear.
-                        4. **TOOLS**: You have access to send emails, send SMS, check calendar, create events, manage Docs/Sheets, find places, analyze web traffic, and manage Google Tag Manager (GTM). Use them!
-                        ` }],
-                    },
-                    {
-                        role: "model",
-                        parts: [{ text: "Uppfattat. Jag kommer alltid svara på samma språk som användaren (Svenska/Norska), agera direkt och använda alla mina verktyg (Mail, SMS, Kalender, Docs, Sheets, Maps, Analytics, GTM) effektivt." }],
+                            text: finalSystemPrompt
+                        }],
                     }
                 ];
 

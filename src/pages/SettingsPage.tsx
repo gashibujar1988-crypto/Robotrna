@@ -257,9 +257,90 @@ const MotherConfigTab = () => {
 
 
 
+// --- Brand DNA Component ---
+const BrandDNAConfig = () => {
+    const [brand, setBrand] = useState(() => {
+        const saved = localStorage.getItem('brand_dna');
+        return saved ? JSON.parse(saved) : {
+            name: '',
+            mission: '',
+            tone: '',
+            colors: '',
+            targetAudience: '',
+            uniqueSellingPoint: ''
+        };
+    });
+
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleSave = () => {
+        setIsSaving(true);
+        setTimeout(() => {
+            localStorage.setItem('brand_dna', JSON.stringify(brand));
+            logSystemEvent('Uppdaterade Brand DNA', 'System');
+            setIsSaving(false);
+            alert("Brand DNA uppdaterat! Alla agenter har nu tillgång till detta.");
+        }, 800);
+    };
+
+    return (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2"><Sparkles className="text-purple-500" /> Brand DNA</h2>
+                <p className="text-gray-500">Detta är ert företags själ. Alla agenter läser detta för att veta vilka ni är.</p>
+            </div>
+
+            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Företagsnamn</label>
+                    <input
+                        value={brand.name}
+                        onChange={(e) => setBrand({ ...brand, name: e.target.value })}
+                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        placeholder="T.ex. Acme Corp"
+                    />
+                </div>
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Mission / Vision</label>
+                    <textarea
+                        value={brand.mission}
+                        onChange={(e) => setBrand({ ...brand, mission: e.target.value })}
+                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
+                        placeholder="Vad vill ni uppnå?"
+                    />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Målgrupp</label>
+                        <input
+                            value={brand.targetAudience}
+                            onChange={(e) => setBrand({ ...brand, targetAudience: e.target.value })}
+                            className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="Vilka säljer ni till?"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Unik Fördel (USP)</label>
+                        <input
+                            value={brand.uniqueSellingPoint}
+                            onChange={(e) => setBrand({ ...brand, uniqueSellingPoint: e.target.value })}
+                            className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            placeholder="Varför välja er?"
+                        />
+                    </div>
+                </div>
+
+                <button onClick={handleSave} className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all">
+                    {isSaving ? 'Sparar...' : 'Spara Brand DNA'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const SettingsPage: React.FC = () => {
     const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'profile' | 'mother' | 'integrations'>('mother');
+    const [activeTab, setActiveTab] = useState<'profile' | 'mother' | 'integrations' | 'brand'>('mother');
 
     return (
         <div className="bg-gray-50/50 min-h-screen font-sans">
@@ -274,6 +355,7 @@ const SettingsPage: React.FC = () => {
                         {[
                             { id: 'profile', label: 'Min Profil', icon: User },
                             { id: 'mother', label: 'Mother AI Konfig', icon: Cpu },
+                            { id: 'brand', label: 'Brand DNA', icon: Sparkles },
                             { id: 'integrations', label: 'Integrationer', icon: Globe },
                         ].map((tab: any) => (
                             <button
@@ -288,7 +370,7 @@ const SettingsPage: React.FC = () => {
 
                         <div className="pt-8 mt-8 border-t border-gray-200">
                             <div className="px-4 text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Systeminfo</div>
-                            <div className="px-4 text-sm text-gray-500 font-mono">v.1.0.4 Beta</div>
+                            <div className="px-4 text-sm text-gray-500 font-mono">v.1.0.5 Release</div>
                         </div>
                     </div>
 
@@ -303,6 +385,7 @@ const SettingsPage: React.FC = () => {
                             {activeTab === 'profile' && <ProfileTab user={user} />}
                             {activeTab === 'mother' && <MotherConfigTab />}
                             {activeTab === 'integrations' && <IntegrationsTab />}
+                            {activeTab === 'brand' && <BrandDNAConfig />}
                         </motion.div>
                     </div>
                 </div>

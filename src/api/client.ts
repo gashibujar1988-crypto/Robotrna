@@ -849,6 +849,25 @@ const api = {
                     systemPrompt = agentData?.fullDescription || `You are ${robotName}, a ${robotRole}.`;
                 }
 
+                // FETCH BRAND DNA (Memory Layer)
+                let brandDNA = "";
+                try {
+                    const brandData = localStorage.getItem('brand_dna');
+                    if (brandData) {
+                        const parsed = JSON.parse(brandData);
+                        brandDNA = `
+                        FÖRETAGS-DNA (BRAND IDENTITY):
+                        Namn: ${parsed.name || "N/A"}
+                        Mission: ${parsed.mission || "N/A"}
+                        Målgrupp: ${parsed.targetAudience || "N/A"}
+                        Tone of Voice: ${parsed.tone || "N/A"}
+                        USP: ${parsed.uniqueSellingPoint || "N/A"}
+                        `;
+                    }
+                } catch (e) {
+                    console.warn("Could not load Brand DNA");
+                }
+
                 // 3. Fetch Recent Chat History (Context)
                 // Use the same messagesRef defined above (User Scoped)
                 let chatHistoryText = "";
@@ -875,6 +894,8 @@ const api = {
                 
                 GLOBAL_RULES (STRITCA):
                 ${globalRules}
+
+                ${brandDNA}
                 
                 CONTEXT (SENASTE CHATHISTORIK):
                 ${chatHistoryText}

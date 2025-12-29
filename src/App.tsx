@@ -18,6 +18,7 @@ import MotherPage from './pages/MotherPage';
 import PricingPage from './pages/PricingPage';
 import DevelopersPage from './pages/DevelopersPage';
 import SettingsPage from './pages/SettingsPage';
+import AnalyticsPage from './pages/AnalyticsPage';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -67,6 +68,7 @@ function App() {
             <Route path="/pricing" element={<><Navbar /><PricingPage /><Footer /></>} />
             <Route path="/developers" element={<><Navbar /><DevelopersPage /><Footer /></>} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
 
 
             <Route path="/solutions" element={<><Navbar /><SolutionsPage /><Footer /></>} />

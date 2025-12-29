@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, where, doc } from 'firebase/firestore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, X } from 'lucide-react';
 
@@ -60,6 +60,41 @@ const GlobalNotifications: React.FC = () => {
         });
 
         return () => unsubscribe();
+    }, [user]);
+
+    // --- MARKET WATCH LISTENER (Shadow Agent) ---
+    useEffect(() => {
+        if (!user) return;
+
+        // Listen to the market_watch document for this user
+        // If 'pending_insights' array has items, trigger a notification
+        const marketRef = doc(db, 'market_watch', user.id);
+
+        const unsubMarket = onSnapshot(marketRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                const insights = data.pending_insights || [];
+
+                if (insights.length > 0) {
+                    // Take the last one
+                    const latest = insights[insights.length - 1];
+
+                    setLatestNotification({
+                        id: `market-${Date.now()}`,
+                        agentName: 'Brainy (Market Watch)',
+                        message: latest.summary || "Jag har hittat en nyhet som påverkar din strategi.",
+                        timestamp: new Date(),
+                        read: false
+                    });
+                    setShowBubble(true);
+
+                    // Auto-hide
+                    setTimeout(() => setShowBubble(false), 8000); // Give a bit more time for insights
+                }
+            }
+        });
+
+        return () => unsubMarket();
     }, [user]);
 
     return (

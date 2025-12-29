@@ -6,7 +6,7 @@ import App from './App.tsx'
 
 const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || localStorage.getItem('google_client_id') || "PLACEHOLDER_CLIENT_ID";
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById('run')!).render(
   <StrictMode>
     <GoogleOAuthProvider clientId={clientId}>
       <App />

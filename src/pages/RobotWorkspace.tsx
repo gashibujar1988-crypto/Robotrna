@@ -459,6 +459,17 @@ const RobotWorkspace: React.FC = () => {
                         const calData = await calRes.json();
                         const mailData = await mailRes.json();
 
+                        // NOISE REDUCTION TRIGGER LOGIC
+                        const hasRecentEvents = (calData.items || []).length > 0;
+                        const hasUnreadMail = (mailData.messages || []).length > 0;
+                        const isImportant = hasUnreadMail || hasRecentEvents;
+
+                        if (!isImportant) {
+                            // If nothing new, just silent or generic greeting?
+                            // User asked: "Minska brus". If no important info, hälsa bara vänligt.
+                            console.log("No important updates found. Reducing noise.");
+                        }
+
                         const newTasks: Task[] = [];
 
                         // Process Calendar

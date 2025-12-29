@@ -24,10 +24,13 @@ const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   return isAuthenticated ? <>{children}</> : <Navigate to="/" />;
 };
 
+import GlobalNotifications from './components/GlobalNotifications';
+
 function App() {
   return (
     <Router>
       <AuthProvider>
+        <GlobalNotifications />
         <div className="bg-white min-h-screen text-gray-900 selection:bg-purple-100 selection:text-purple-900">
           <Routes>
             <Route path="/" element={<><Navbar /><Home /><Footer /></>} />

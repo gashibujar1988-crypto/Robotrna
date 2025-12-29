@@ -41,6 +41,10 @@ const StatCard = ({ icon: Icon, label, value, color, delay }: any) => (
     </motion.div>
 );
 
+import { db } from '../firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import TeamGreetingModal from '../components/TeamGreetingModal';
+
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const [robots, setRobots] = useState<any[]>([]);
@@ -57,6 +61,44 @@ const Dashboard: React.FC = () => {
     // --- CONCIERGE STATE ---
     const [conciergeQuery, setConciergeQuery] = useState('');
     const [conciergeResult, setConciergeResult] = useState<any>(null);
+
+    // --- ONBOARDING / GREETING STATE ---
+    const [showGreeting, setShowGreeting] = useState(false);
+
+    useEffect(() => {
+        const checkOnboarding = async () => {
+            if (user?.id) {
+                const userRef = doc(db, "users", user.id);
+                try {
+                    const userSnap = await getDoc(userRef);
+                    if (userSnap.exists()) {
+                        const data = userSnap.data();
+                        if (data.hasCompletedOnboarding === false || data.hasCompletedOnboarding === undefined) {
+                            // Show greeting
+                            setTimeout(() => setShowGreeting(true), 1500);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error checking onboarding status", e);
+                }
+            }
+        };
+        checkOnboarding();
+    }, [user]);
+
+    const handleGreetingClose = async () => {
+        setShowGreeting(false);
+        if (user?.id) {
+            try {
+                const userRef = doc(db, "users", user.id);
+                await updateDoc(userRef, {
+                    hasCompletedOnboarding: true
+                });
+            } catch (e) {
+                console.error("Failed to update onboarding status", e);
+            }
+        }
+    };
 
     const handleConciergeSearch = () => {
         if (!conciergeQuery.trim()) return;
@@ -170,6 +212,12 @@ const Dashboard: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#F0F2F5] text-gray-900 font-sans relative overflow-x-hidden">
+            {/* Team Greeting Modal */}
+            <TeamGreetingModal
+                isOpen={showGreeting}
+                onClose={handleGreetingClose}
+                userName={user?.name?.split(' ')[0] || ''}
+            />
             {/* Subtle premium background pattern */}
             <div className="absolute inset-0 z-0 opacity-[0.4]">
                 <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-purple-200/30 rounded-full blur-[100px]" />

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowRight, Activity, Mail, Calendar, Cpu, Bot,
-    Settings, Shield, X, Check, TrendingUp, Clock, MessageSquarePlus, Car,
+    Settings, Shield, X, Check, TrendingUp, Clock, MessageSquarePlus, Car, Users,
     Sparkles, Search, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -344,8 +344,27 @@ const Dashboard: React.FC = () => {
                         {/* Stats Row */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
-                            {/* Next Meeting Special Card - Only item remaining in this row */}
+                            <Link to="/analytics">
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 }}
+                                    className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group hover:shadow-xl transition-all h-full"
+                                >
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="p-3 rounded-2xl bg-green-50 text-green-600 group-hover:scale-110 transition-transform">
+                                            <TrendingUp className="w-6 h-6" />
+                                        </div>
+                                        <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-full uppercase">Nyhet</span>
+                                    </div>
+                                    <div className="text-gray-400 text-sm font-medium mb-1">Analytics & ROI</div>
+                                    <div className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+                                        Visa Data <ArrowRight className="w-5 h-5" />
+                                    </div>
+                                </motion.div>
+                            </Link>
 
+                            <StatCard icon={Users} label="Aktiva Agenter" value={robots.length} color="bg-purple-500" delay={0.2} />
 
                             {/* Next Meeting Special Card */}
                             {nextMeeting ? (

@@ -13,11 +13,20 @@ interface Notification {
     read: boolean;
 }
 
+import { initializeMarketWatch } from '../utils/initUser';
+
 const GlobalNotifications: React.FC = () => {
     const { user } = useAuth();
     // const [notifications, setNotifications] = useState<Notification[]>([]); // Removing unused state
     const [showBubble, setShowBubble] = useState(false);
     const [latestNotification, setLatestNotification] = useState<Notification | null>(null);
+
+    // Initialize Market Watch presets for new users
+    useEffect(() => {
+        if (user) {
+            initializeMarketWatch(user.id);
+        }
+    }, [user]);
 
     useEffect(() => {
         if (!user) return;

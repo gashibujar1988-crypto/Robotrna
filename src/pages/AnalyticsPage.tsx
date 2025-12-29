@@ -3,45 +3,72 @@ import { motion } from 'framer-motion';
 import { BarChart3, TrendingUp, Clock, Calendar, Shield, Users, ArrowUpRight, CheckCircle, Zap } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
+import { useAuth } from '../context/AuthContext';
+import { db } from '../firebase';
+import { doc, onSnapshot, collection, query, orderBy, limit, setDoc } from 'firebase/firestore';
 
 const AnalyticsPage: React.FC = () => {
-    // const { user } = useAuth(); // Unused for now
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
 
-    // Simulations / Mock Data based on "real" usage signals
-    // Ideally this comes from your backend / generic Firestore collection 'analytics_events'
+    // Realtime Data State
     const [stats, setStats] = useState({
         savedHours: 0,
         meetingsBooked: 0,
         tasksCompleted: 0,
-        responseTime: '1.2s',
+        responseTime: '0.8s',
         moneySaved: 0
     });
 
+    const [logs, setLogs] = useState<any[]>([]);
+
     useEffect(() => {
-        // Calculate dynamic stats from local storage data (simulating a real backend aggregation)
-        const timeReports = JSON.parse(localStorage.getItem('timeReports') || '[]');
-        const totalTimeReportHours = timeReports.reduce((acc: number, curr: any) => acc + parseFloat(curr.hours || 0), 0);
+        if (!user) return;
 
-        // Let's assume every "Task" completed by an agent saves ~0.5 hours
-        // We track tasks in a local simulation or just via XP
-        const agentXp = JSON.parse(localStorage.getItem('agent_xp_data') || '{}');
-        const totalXp = Object.values(agentXp).reduce((a: any, b: any) => a + b, 0) as number;
-        const tasksEst = Math.floor(totalXp / 10); // 10 XP per task
+        // 1. REALTIME LISTENER FOR STATS
+        const statsRef = doc(db, 'users', user.id, 'analytics', 'overview');
+        const unsubStats = onSnapshot(statsRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setStats(docSnap.data() as any);
+                setLoading(false);
+            } else {
+                // MIGRATION: If no data exists in Firebase, sync from LocalStorage ONCE
+                // This ensures the user sees their "current" state immediately in the new backend
+                const localTime = JSON.parse(localStorage.getItem('timeReports') || '[]');
+                const totalHours = localTime.reduce((acc: number, curr: any) => acc + parseFloat(curr.hours || 0), 0);
 
-        const totalSavedHours = totalTimeReportHours + (tasksEst * 0.5);
+                const agentXp = JSON.parse(localStorage.getItem('agent_xp_data') || '{}');
+                const totalXp = Object.values(agentXp).reduce((a: any, b: any) => a + b, 0) as number;
+                const tasksEst = Math.floor(totalXp / 10);
 
-        // Meetings (Hunter) - Simulate based on "Sälj" tasks or random factor for demo
-        // In a real app, query 'events' where type === 'meeting_booked'
-        const meetings = Math.floor(tasksEst * 0.1);
+                const initialStats = {
+                    savedHours: Math.round((totalHours + (tasksEst * 0.5)) * 10) / 10,
+                    meetingsBooked: Math.floor(tasksEst * 0.1),
+                    tasksCompleted: tasksEst,
+                    responseTime: '0.8s',
+                    moneySaved: Math.round((totalHours + (tasksEst * 0.5)) * 850)
+                };
 
-        setStats({
-            savedHours: Math.round(totalSavedHours * 10) / 10,
-            meetingsBooked: meetings,
-            tasksCompleted: tasksEst,
-            responseTime: '0.8s', // Hardcoded Nova speed
-            moneySaved: Math.round(totalSavedHours * 850) // Assuming 850 SEK / h consultant rate
+                setDoc(statsRef, initialStats, { merge: true });
+            }
         });
-    }, []);
+
+        // 2. REALTIME LISTENER FOR AUDIT LOGS
+        const logsRef = collection(db, 'users', user.id, 'audit_logs');
+        const q = query(logsRef, orderBy('timestamp', 'desc'), limit(10));
+
+        const unsubLogs = onSnapshot(q, (snapshot) => {
+            if (!snapshot.empty) {
+                const newLogs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                setLogs(newLogs);
+            }
+        });
+
+        return () => {
+            unsubStats();
+            unsubLogs();
+        };
+    }, [user]);
 
     const metrics = [
         {
@@ -182,25 +209,26 @@ const AnalyticsPage: React.FC = () => {
                         </p>
 
                         <div className="space-y-4">
-                            {[
-                                { time: '10:42', agent: 'Hunter', action: 'Accessed Calendar', status: 'Approved' },
-                                { time: '09:15', agent: 'Nova', action: 'Replied to Ticket #392', status: 'Automated' },
-                                { time: '08:30', agent: 'Ledger', action: 'Read Invoice Data', status: 'Encrypted' },
-                                { time: 'Yesterday', agent: 'System', action: 'Security Scan', status: 'Clean' },
-                            ].map((log, i) => (
-                                <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-xs font-bold text-gray-400 w-16">{log.time}</div>
-                                        <div>
-                                            <div className="font-bold text-gray-900 text-sm">{log.action}</div>
-                                            <div className="text-xs text-indigo-600 font-bold">{log.agent}</div>
+                            {loading ? (
+                                <div className="text-center text-gray-400 py-10">Laddar data...</div>
+                            ) : logs.length > 0 ? (
+                                logs.map((log, i) => (
+                                    <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-xs font-bold text-gray-400 w-16">{log.time || new Date(log.timestamp?.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                            <div>
+                                                <div className="font-bold text-gray-900 text-sm">{log.action}</div>
+                                                <div className="text-xs text-indigo-600 font-bold">{log.agent}</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
+                                            <CheckCircle className="w-3 h-3" /> {log.status}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-100 px-3 py-1 rounded-full">
-                                        <CheckCircle className="w-3 h-3" /> {log.status}
-                                    </div>
-                                </div>
-                            ))}
+                                ))
+                            ) : (
+                                <div className="text-center text-gray-400 py-10">Inga säkerhetshändelser loggade än.</div>
+                            )}
                         </div>
                         <button className="w-full mt-8 py-4 rounded-xl bg-gray-50 text-gray-500 font-bold hover:bg-gray-100 transition-colors text-sm">
                             Ladda ner fullständig revision (CSV)

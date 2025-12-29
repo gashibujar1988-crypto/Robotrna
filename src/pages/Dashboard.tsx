@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowRight, Activity, Mail, Calendar, Cpu, Bot,
-    Settings, Shield, X, Check, TrendingUp, Users, Clock, MessageSquarePlus, Car,
+    Settings, Shield, X, Check, TrendingUp, Clock, MessageSquarePlus, Car,
     Sparkles, Search, Zap
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -343,51 +343,8 @@ const Dashboard: React.FC = () => {
 
                         {/* Stats Row */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <StatCard icon={Users} label="Aktiva Agenter" value={robots.length} color="bg-purple-500" delay={0.1} />
 
-                            {/* ROI / Impact Metric */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.15 }}
-                                className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group hover:shadow-xl transition-all"
-                            >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="p-3 rounded-2xl bg-green-50 text-green-600 group-hover:scale-110 transition-transform">
-                                        <TrendingUp className="w-6 h-6" />
-                                    </div>
-                                    <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-full uppercase">Est. ROI</span>
-                                </div>
-                                <div className="text-gray-400 text-sm font-medium mb-1">Sparad Tid/V</div>
-                                <div className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                                    {(() => {
-                                        const reports = JSON.parse(localStorage.getItem('timeReports') || '[]');
-                                        const totalHours = reports.reduce((acc: number, curr: any) => acc + parseFloat(curr.hours || 0), 0);
-                                        return totalHours > 0 ? `${totalHours}h` : '0h';
-                                    })()}
-                                </div>
-                            </motion.div>
-
-                            {/* System Efficiency */}
-                            <motion.div
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: 0.25 }}
-                                className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group hover:shadow-xl transition-all"
-                            >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="p-3 rounded-2xl bg-blue-50 text-blue-600 group-hover:scale-110 transition-transform">
-                                        <Cpu className="w-6 h-6" />
-                                    </div>
-                                    <span className={`text-xs font-bold px-2 py-1 rounded-full uppercase ${user?.isGoogleConnected ? 'text-green-600 bg-green-50' : 'text-red-500 bg-red-50'}`}>
-                                        {user?.isGoogleConnected ? '99.9%' : 'Varning'}
-                                    </span>
-                                </div>
-                                <div className="text-gray-400 text-sm font-medium mb-1">System Health</div>
-                                <div className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                                    {user?.isGoogleConnected ? 'Optimal' : 'Konfig Krävs'}
-                                </div>
-                            </motion.div>
+                            {/* Next Meeting Special Card - Only item remaining in this row */}
 
 
                             {/* Next Meeting Special Card */}

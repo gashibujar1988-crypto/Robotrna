@@ -407,45 +407,6 @@ export const agents: Agent[] = [
         color: 'text-emerald-400',
         gradient: 'from-emerald-400 to-teal-600',
         baseStats: { intelligence: 95, speed: 90, creativity: 50 }
-    },
-    {
-        id: '10',
-        name: 'AI Support Desk',
-        role: 'Helautomatisk Kundtjänst',
-        shortDescription: 'En komplett kundtjänstavdelning som aldrig sover. Powered by Nova.',
-        fullDescription: 'Varför anställa en person när du kan få en hel avdelning? AI Support Desk är en nyckelfärdig lösning där Nova hanterar all inkommande kundservice. Hon lär sig din kunskapsbas på sekunder, integreras direkt i din chatt och mail, och löser 80% av ärendena helt på egen hand. För de resterande 20% förbereder hon underlag så att ditt team kan agera snabbare.',
-        personality: 'Serviceinriktad, Blixtsnabb, Outtröttlig',
-        usp: "Sänker supportkostnader med 70% och svarar på < 2 sekunder.",
-        problemSolved: "Helg-support och nattpass är dyrt, och kunder hatar att vänta i kö.",
-        skills: [
-            { title: 'Ticket Triage', description: 'Analyserar, prioriterar och taggar inkommande ärenden automatiskt.' },
-            { title: 'Knowledge Base', description: 'Bygger och underhåller din FAQ baserat på lösta ärenden.' },
-            { title: 'Multilingual Support', description: 'Ger support på 95 språk flytande, utan extra kostnad.' },
-            { title: 'Sentiment Analysis', description: 'Upptäcker arga kunder direkt och eskalerar dem till senior personal.' }
-        ],
-        useCases: [
-            'Automatisera 1st line support',
-            'Svara på mail dygnet runt',
-            'Hantera returer och orderfrågor'
-        ],
-        capabilities: [
-            {
-                title: 'Instant Response',
-                description: 'Dina kunder får svar direkt, oavsett om de mailar klockan 03:00 på natten eller mitt i lunchen.'
-            },
-            {
-                title: 'Självlärande System',
-                description: 'Ju fler frågor den besvarar, desto smartare blir den. Vi bygger automatiskt upp din kunskapsbas.'
-            },
-            {
-                title: 'Sömlös Integration',
-                description: 'Kopplas in i HelpScout, Intercom, Zendesk eller Gmail på några minuter. Ingen ny programvara att lära sig.'
-            }
-        ],
-        image: robotSupport,
-        color: 'text-indigo-600',
-        gradient: 'from-blue-600 to-violet-600',
-        baseStats: { intelligence: 100, speed: 100, creativity: 40 }
     }
 ];
 

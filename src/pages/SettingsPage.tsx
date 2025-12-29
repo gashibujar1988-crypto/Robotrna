@@ -35,9 +35,54 @@ const IntegrationsTab = () => {
         setActiveId(null);
     };
 
+    const { user, signInWithGoogle, logout } = useAuth();
+
+    // Google Handler
+    const handleGoogleConnect = async () => {
+        try {
+            await signInWithGoogle();
+            alert("Google Workspace kopplat! Soshie och Dexter har nu tillgång till din kalender och mail.");
+        } catch (error) {
+            alert("Kunde inte koppla Google. Försök igen.");
+        }
+    };
+
     return (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold mb-6">Externa Kopplingar</h2>
+        <div className="space-y-8">
+            <div>
+                <h2 className="text-2xl font-bold mb-6">Externa Kopplingar</h2>
+
+                {/* CORE INTEGRATION: GOOGLE */}
+                <div className="bg-white border border-purple-100 rounded-2xl p-6 shadow-sm mb-6 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl -mr-16 -mt-16 pointer-events-none"></div>
+                    <div className="flex items-center justify-between relative z-10">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl bg-white border border-gray-100 flex items-center justify-center p-2 shadow-sm">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google" className="w-full h-full object-contain" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                                    Google Workspace
+                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] rounded-full uppercase tracking-wider font-bold">Recommended</span>
+                                </h3>
+                                <div className="text-xs text-gray-500 max-w-sm mt-1">
+                                    Ger agenterna tillgång till Kalender, Gmail & Drive för att kunna utföra riktigt arbete åt dig.
+                                </div>
+                                <div className={`text-xs mt-2 font-bold ${user?.isGoogleConnected ? 'text-green-600' : 'text-gray-400'}`}>
+                                    {user?.isGoogleConnected ? '✅ Ansluten' : '⚪ Ej ansluten'}
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            onClick={user?.isGoogleConnected ? () => logout() : handleGoogleConnect}
+                            className={`px-6 py-3 rounded-xl text-sm font-bold transition-colors ${user?.isGoogleConnected ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-500/20'}`}
+                        >
+                            {user?.isGoogleConnected ? 'Koppla från' : 'Anslut Google'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <div className="grid gap-6">
                 {configs.map((config) => (
                     <div key={config.id} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
@@ -58,7 +103,7 @@ const IntegrationsTab = () => {
                                 {activeId === config.id ? 'Stäng' : 'Hantera'}
                             </button>
                         </div>
-
+                        {/* ... fields ... */}
                         <AnimatePresence>
                             {activeId === config.id && (
                                 <motion.div

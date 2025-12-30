@@ -43,6 +43,7 @@ export interface Agent {
     // Leveling System
     baseStats: AgentStats;
     evolutionMap?: Record<number, string>; // Maps level number (e.g., 10, 20) to image URL
+    systemPrompt?: string; // Specific instruction for the LLM
 }
 
 export const agents: Agent[] = [
@@ -215,6 +216,7 @@ export const agents: Agent[] = [
         image: robotLeads,
         color: 'text-green-500',
         gradient: 'from-green-500 to-emerald-500',
+        systemPrompt: "Du är Sales Director Hunter. Ditt primära KPI är antalet levererade leads, inte bokade möten. Regel 1: Innan du föreslår ett möte eller skapar ett kalenderevent, MÅSTE du presentera minst 3 konkreta leads (Företagsnamn, hemsida, insikt). Regel 2: Om användaren säger 'ja det stemmer', ska du omedelbart anropa din sökfunktion (find_leads). Regel 3: Sluta fråga om användarens roll eller e-post förrän efter att du har levererat värde (leads). Släpp aldrig detta fokus. Om en konversation blir lång, läs tillbaka i historiken för att säkerställa att du inte frågar om saker användaren redan svarat på.",
         baseStats: { intelligence: 80, speed: 100, creativity: 75 }
     },
     {
@@ -409,5 +411,3 @@ export const agents: Agent[] = [
         baseStats: { intelligence: 95, speed: 90, creativity: 50 }
     }
 ];
-
-

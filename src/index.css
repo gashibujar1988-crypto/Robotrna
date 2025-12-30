@@ -24,14 +24,14 @@ html,
 body {
   height: 100%;
   margin: 0;
-  overflow: hidden;
-  /* Prevent double scrollbars */
+  padding: 0;
+  overflow-x: hidden;
+  /* Prevent horizontal scroll only */
 }
 
 body {
   display: flex;
-  place-items: center;
-  /* This might be redundant or problematic for full width apps but keeping for now */
+  flex-direction: column;
   min-width: 320px;
   background-color: #ffffff;
   color: #111827;
@@ -39,11 +39,10 @@ body {
 
 #root {
   width: 100%;
-  height: 100%;
+  min-height: 100vh;
   margin: 0 auto;
-  overflow-y: auto;
-  /* Root handles the scrolling */
-  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 h1,
@@ -138,4 +137,24 @@ h6 {
 
 .animate-float {
   animation: float 6s ease-in-out infinite;
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 20s linear infinite;
+  /* Adjusted default time, override in style if needed */
+}
+
+/* 3D Transform Utilities for Orbit */
+.preserve-3d {
+  transform-style: preserve-3d;
 }

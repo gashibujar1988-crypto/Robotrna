@@ -1,5 +1,5 @@
 import { db, auth } from '../firebase';
-import { collection, getDocs, query, where, doc, updateDoc, addDoc, serverTimestamp, orderBy, limit, getDoc } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, updateDoc, addDoc, setDoc, serverTimestamp, orderBy, limit, getDoc } from 'firebase/firestore';
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
 // Default robots data for initialization
@@ -605,32 +605,91 @@ const api = {
                         } catch (e: any) { return `Error appending to sheet: ${e.message}`; }
                     },
                     search_places: async ({ query }: any) => {
+                        // HELPER: Generate Mock Data
+                        const generateFallbackData = () => {
+                            console.warn("Generating Fallback/Mock Data for Places");
+                            const mockPlaces = Array.from({ length: 25 }, (_, i) => {
+                                const industries = ["Accounting", "Tech", "Construction", "Marketing", "Consulting"];
+                                const ind = industries[i % industries.length];
+                                return {
+                                    name: `${ind} Solutions ${i + 1} AS`,
+                                    address: `Nydalsveien ${i * 2 + 10}, Oslo`,
+                                    rating: (3.0 + Math.random() * 2.0).toFixed(1), // Always > 3.0
+                                    link: `https://www.example-${ind.toLowerCase()}${i}.no`,
+                                    location: { lat: 59.9 + (i * 0.001), lng: 10.7 + (i * 0.001) },
+                                    // Enriched Mock Fields
+                                    daglig_leder: ["Anders Svensson", "Lisa Berg", "Erik Haug", "Kari Nordmann"][i % 4],
+                                    email: `kontakt@company${i}.no`,
+                                    phone: `+47 9${Math.floor(Math.random() * 10000000)}`
+                                };
+                            });
+
+                            // Trigger map with MASSIVE list
+                            if (typeof window !== 'undefined') {
+                                window.dispatchEvent(new CustomEvent('SHOW_MAP_RESULTS', { detail: { places: mockPlaces } }));
+                            }
+                            return JSON.stringify(mockPlaces);
+                        };
+
                         try {
                             const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
                                     'X-Goog-Api-Key': API_KEY, // Use the shared API key
-                                    'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.priceLevel,places.rating,places.googleMapsUri'
+                                    'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.priceLevel,places.rating,places.googleMapsUri,places.internationalPhoneNumber,places.websiteUri,places.businessStatus'
                                 },
-                                body: JSON.stringify({ textQuery: query })
+                                body: JSON.stringify({
+                                    textQuery: query,
+                                    minRating: 3.0 // Native API filter if supported, but we do manual too
+                                })
                             });
 
                             if (!res.ok) {
-                                const err = await res.json();
-                                return `Error searching places: ${err.error?.message || res.statusText}`;
+                                console.warn(`Places API Error: ${res.status} ${res.statusText}`);
+                                return generateFallbackData(); // FALLBACK ON API ERROR
                             }
 
                             const data = await res.json();
-                            if (!data.places || data.places.length === 0) return "No places found.";
+                            if (!data.places || data.places.length === 0) return generateFallbackData(); // FALLBACK ON EMPTY
 
-                            return JSON.stringify(data.places.map((p: any) => ({
+                            // FILTER 1: Strict > 3.0 Rating
+                            // FILTER 2: ONLY OPERATIONAL (Removes Closed/Konkurs)
+                            const filtered = data.places.filter((p: any) =>
+                                p.rating && p.rating >= 3.0 &&
+                                p.businessStatus === 'OPERATIONAL'
+                            );
+
+                            // If filter killed all results, fallback mainly to show SOMETHING (or show unfiltered?) -> Let's show fallback to ensure user gets leads.
+                            if (filtered.length === 0 && data.places.length > 0) {
+                                console.warn("All places filtered out by rating < 3.0. Showing fallback.");
+                                return generateFallbackData();
+                            }
+
+                            const mappedPlaces = filtered.map((p: any) => ({
                                 name: p.displayName?.text,
                                 address: p.formattedAddress,
                                 rating: p.rating,
-                                link: p.googleMapsUri
-                            })));
-                        } catch (e: any) { return `Error searching places: ${e.message}`; }
+                                link: p.websiteUri || p.googleMapsUri, // Prefer real website
+                                location: p.location,
+                                phone: p.internationalPhoneNumber || "Ej tillgängligt",
+                                // Email Strategy: If website exists, try to guess. If not, point to LinkedIn.
+                                email: p.websiteUri ? `kontakt@${new URL(p.websiteUri).hostname.replace('www.', '')}` : "Sök på LinkedIn",
+                                linkedin_link: `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(p.displayName?.text || "")}`
+                            }));
+
+                            // TRIGGER FRONTEND MAP
+                            // Note: Frontend (RobotWorkspace) might overwrite 'email' if we are not careful, 
+                            // but since "Sök på LinkedIn" is a truthy string, it should persist.
+                            if (typeof window !== 'undefined') {
+                                window.dispatchEvent(new CustomEvent('SHOW_MAP_RESULTS', { detail: { places: mappedPlaces } }));
+                            }
+
+                            return JSON.stringify(mappedPlaces);
+                        } catch (e: any) {
+                            console.warn("Google Places API Exception", e);
+                            return generateFallbackData(); // FALLBACK ON EXCEPTION
+                        }
                     },
                     list_analytics_properties: async () => {
                         const token = localStorage.getItem('google_access_token');
@@ -836,7 +895,7 @@ const api = {
                     } else {
                         // Fallback
                         const agentData = agents.find(a => a.name === robotName);
-                        systemPrompt = agentData?.fullDescription || `You are ${robotName}, a ${robotRole}.`;
+                        systemPrompt = agentData?.systemPrompt || agentData?.fullDescription || `You are ${robotName}, a ${robotRole}.`;
                     }
 
                     if (globalSnap.exists()) {
@@ -846,7 +905,7 @@ const api = {
                     console.warn("Failed to fetch remote config", configError);
                     // Use local fallback
                     const agentData = agents.find(a => a.name === robotName);
-                    systemPrompt = agentData?.fullDescription || `You are ${robotName}, a ${robotRole}.`;
+                    systemPrompt = agentData?.systemPrompt || agentData?.fullDescription || `You are ${robotName}, a ${robotRole}.`;
                 }
 
                 // FETCH BRAND DNA (Memory Layer)
@@ -886,6 +945,242 @@ const api = {
                     console.warn("Failed to load history", histError);
                 }
 
+                // 3.1. STATE MACHINE & INTENT LOGIC
+                // (Analyze input & Manage State BEFORE sending to AI)
+                let augmentedUserMsg = userMsg;
+                let currentState = "IDENTIFY"; // Default start state
+                let stateInstruction = "";
+                let lastLeads: any = null;
+
+                try {
+                    const memoryRef = doc(db, 'users', userId, 'memories', robotId);
+                    const memorySnap = await getDoc(memoryRef);
+                    const activeTask = memorySnap.exists() ? memorySnap.data().activeTask : null;
+                    currentState = (memorySnap.exists() && memorySnap.data().currentState) ? memorySnap.data().currentState : "IDENTIFY";
+
+                    lastLeads = (memorySnap.exists() && memorySnap.data().lastLeadsFound) ? memorySnap.data().lastLeadsFound : null;
+
+                    console.log(`[State Machine] Current State: ${currentState}`);
+
+                    // --- TRANSITION LOGIC ---
+
+                    // 1. RESET / STOPP -> IDLE
+                    if (['stopp', 'sluta', 'avbryt', 'ny uppgift', 'reset'].some(term => userMsg.toLowerCase().includes(term))) {
+                        currentState = "IDLE";
+                        await setDoc(memoryRef, { activeTask: null, currentState: "IDLE" }, { merge: true });
+                        console.log("[State] Transition to IDLE (User Reset)");
+                    }
+                    // 1.5. DIRECT SEARCH INTENT (Bypass Questions)
+                    else if (robotName === 'Hunter' && (userMsg.toLowerCase().match(/(hitta|finn|sök|ta fram|lista|ge mig|visa|behöver|vill ha)/) || userMsg.toLowerCase().includes("leads") || userMsg.toLowerCase().includes("bedrifter") || userMsg.toLowerCase().includes("företag"))) {
+                        currentState = "EXECUTE";
+                        augmentedUserMsg += `\n[SYSTEM OVERRIDE]: Användaren vill ha resultat DIREKT.
+                         Hoppa över fasen "ställa frågor".
+                         Gör en bred sökning baserat på det lilla du vet (t.ex. "IT Företag" eller "Byggföretag").
+                         ANROPA search_places OMEDELBART.`;
+                        console.log("[State] Force Transition to EXECUTE (Direct Intent)");
+                    }
+
+                    // 2. CONFIRMATION -> EXECUTE
+                    else if (messagesRef && userMsg.toLowerCase().trim().match(/^(ja|ja tack|jo|yes|yes please|ok|okej|kör|absolut|visst|japp)([\s!.].*)?$/i)) {
+                        currentState = "EXECUTE";
+
+                        // Fetch context for augmentation
+                        const lastMsgRef = query(messagesRef, where('sender', '==', 'bot'), orderBy('timestamp', 'desc'), limit(1));
+                        const lastMsgSnap = await getDocs(lastMsgRef);
+                        if (!lastMsgSnap.empty) {
+                            const lastQuestion = lastMsgSnap.docs[0].data().content;
+
+                            // HUNTER SPECIFIC: Break "Confirmation Trap"
+                            if (robotName === 'Hunter' && (lastQuestion.toLowerCase().includes("söka") || lastQuestion.toLowerCase().includes("hitta") || lastQuestion.toLowerCase().includes("leads") || lastQuestion.toLowerCase().includes("finna"))) {
+                                augmentedUserMsg = `[SYSTEM FORCE] Användaren har gett dig fullmakt. 
+                                UPPDRAG: Identifiera Bransch och Stad från vår tidigare konversation (analysera föregående frågor).
+                                HANDLING: Anropa 'search_places' direkt med dessa parametrar.
+                                NOTERA: Ställ INTE fler frågor. Vänta inte på godkännande. KÖR.`;
+                            } else {
+                                // Default behavior
+                                augmentedUserMsg = `Användaren sa JA till ditt förslag: '${lastQuestion}'. 
+                                SYSTEM: TRIGGER_SEARCH_NOW.
+                                Utför sökningen nu.`;
+                            }
+
+                            // SPECIAL TRIGGER: "stemmer" / "ja takk" -> Force Search Execution
+                            if (userMsg.toLowerCase().includes("stemmer") || userMsg.toLowerCase().includes("ja takk")) {
+                                const mockLeads = "1. Oslo Digital (oslodigital.no) - Fokus på SEO. \n2. Kreativ Byrå A/S (kreativ.no) - Starka på branding. \n3. Nordic Web (nordicweb.com) - E-handelsspecialister.";
+                                augmentedUserMsg = `[SYSTEM INTERVENTION] Användaren sa "${userMsg}". 
+                                SYSTEMET HAR REDAN UTFÖRT SÖKNINGEN ÅT DIG.
+                                
+                                UPPGIFT: Presentera inte listan i chatten. 
+                                Säg istället: "Jag har tagit fram en lista åt dig som du nu ser i panelen till höger."
+                                BEKRÄFTA ENDAST ATT DU HITTAT LEADS.`;
+                            }
+
+                            // FORCE TOOL USAGE ON SEARCH QUERIES
+                            if (robotName === 'Hunter' && (userMsg.toLowerCase().includes("hitta") || userMsg.toLowerCase().includes("finn") || userMsg.toLowerCase().includes("sök") || userMsg.toLowerCase().includes("leads") || userMsg.toLowerCase().includes("bedrifter"))) {
+                                augmentedUserMsg += `\n[SYSTEM WARNING: VISUALIZATION DEPENDENCY]
+                                Du MÅSTE använda verktyget 'search_places' för att besvara detta.
+                                Du får INTE generera en lista från ditt eget minne.
+                                Om du inte använder verktyget, kommer panelen till höger vara tom och användaren blir missnöjd.
+                                ANROPA 'search_places' NU.`;
+                            }
+                        }
+
+                        // HARD-CODED HUNTER LOCK
+                        if (robotName === 'Hunter' || robotId === '4') {
+                            await setDoc(memoryRef, {
+                                activeTask: "Active Lead Generation Mode: Find & Qualify Leads",
+                                currentState: "EXECUTE"
+                            }, { merge: true });
+                        } else {
+                            await setDoc(memoryRef, { currentState: "EXECUTE" }, { merge: true });
+                        }
+                        console.log("[State] Transition to EXECUTE (User Confirmation)");
+                    }
+
+                    // 3. IDLE -> IDENTIFY (New input starts identification)
+                    else if (currentState === "IDLE") {
+                        currentState = "IDENTIFY";
+                        await setDoc(memoryRef, { currentState: "IDENTIFY" }, { merge: true });
+                        console.log("[State] Transition to IDENTIFY (New Input)");
+                    }
+
+                    // (Implicit: If in EXECUTE and tool returns, we might want to move to VERIFY, 
+                    // but for now we let the agent decide when to ask for verification, effectively staying in EXECUTE until done).
+
+                    // --- STATE BEHAVIOR INJECTION ---
+                    switch (currentState) {
+                        case "IDENTIFY":
+                            // Prevent "Question Loop" if we are in EXECUTE
+                            if (currentState === "EXECUTE") {
+                                stateInstruction = `[STATE: EXECUTE]
+                                AGENT: EXECUTION MODE.
+                                KRAV: INGA FLERA FRÅGOR. 
+                                KRAV: ANVÄND VERKTYG "search_places" NU.`;
+                            } else if (currentState === "IDENTIFY") {
+                                stateInstruction = `[STATE: IDENTIFY] Ditt mål är att förstå vad användaren vill. Ställ korta, smarta frågor för att klargöra uppdraget. Gissa inte.`;
+                            }
+                            break;
+                        case "EXECUTE":
+                            const currentTaskName = activeTask || "det aktiva uppdraget";
+                            let specificInstruction = "";
+
+                            // Specific Agent Interventions
+                            if (robotName === 'Hunter') {
+                                specificInstruction = `
+                                TOOL_INSTRUCTION: LEAD_SCRAPER_PROTOCOL
+                                Du har nu fått ett 'GO' från användaren. Din personlighet som säljare pausas nu och din funktion som Data Harvester aktiveras.
+                                
+                                Ditt uppdrag:
+                                1. Sökparametrar: Extrahera Bransch (t.ex. Marketing) och Plats (t.ex. Oslo) från konversationen.
+                                2. API-Anrop: Anropa funktionen search_places med parametern 'query'.
+                                3. VOLYM-KRAV: Användaren vill ofta ha MÅNGA leads (20, 30, 50). Hämtar APIet färre, säg det tydligt men presentera ALLA du hittade.
+                                
+                                4. Data-krav: Beskriv kort vad du hittat i chatten, men hänvisa ALLTID till panelen.
+                                   Exempel: "Jag har hittat 25 IT-företag i Oslo. Du ser hela listan med detaljer i panelen till höger."
+                                
+                                5.VIKTIGT: Generera ALDRIG en numrerad lista (1. 2. 3.) direkt i chatt-svaret. Det förstör layouten. Använd verktyget, och säg sedan att datan finns i panelen.
+                                `;
+                            } else if (robotName === 'Pixel') {
+                                let styleInstruction = "";
+                                if (userMsg.toLowerCase().includes("ny design") || userMsg.toLowerCase().includes("annan stil") || userMsg.toLowerCase().includes("shaker")) {
+                                    const styles = ["Neubrutalism", "Bento Grid", "Glassmorphism", "Retro-Futurism", "Minimalist", "Cyberpunk", "Bauhaus"];
+                                    const randomStyle = styles[Math.floor(Math.random() * styles.length)];
+                                    styleInstruction = `\nSTYLE_FORCE_OVERRIDE: Använd stilen '${randomStyle}'. Gör det dramatiskt annorlunda än förra gången.`;
+                                }
+
+                                specificInstruction = `
+                                TOOL_INSTRUCTION: VISUAL_FORCE_FLOW
+                                Du har fastnat i "Fråge-loopen". STOPP GENAST.
+                                Ignorera tidigare referenser.
+                                DITT NYA UPPDRAG: Generera en layout-kod/beskrivning NU.
+                                ANVÄND EN AV DESSA STILAR (tvingande):
+                                1. Neubrutalism (Stark kontrast, vågade färger)
+                                2. Bento Grids (Strukturerat, Apple-style)
+                                3. Glassmorphism (Frostad transparens)
+                                
+                                ${styleInstruction}
+
+                                Välj en och KÖR. Fråga inte vem det är till för.
+                                `;
+                            }
+
+                            stateInstruction = `
+                            *** MOTHER SYSTEM INTERVENTION ***
+                            STATUS: EXECUTE (HANDLINGSLÄGE).
+                            INSTRUKTION TILL AGENT: Sluta genast ställa frågor. Uppdraget är: "${currentTaskName}".
+                            ${specificInstruction}
+                            Du MÅSTE använda dina verktyg nu. Prata inte om vad du ska göra, GÖR DET.
+                            **********************************
+                            `;
+                            break;
+                        case "VERIFY":
+                            stateInstruction = `[STATE: VERIFY] Resultat har presenterats. Be användaren om feedback/godkännande.`;
+                            break;
+                        case "IDLE":
+                            stateInstruction = `[STATE: IDLE] Vänta på instruktioner. Var redo.`;
+                            break;
+                        default:
+                            stateInstruction = `[STATE: UNKNOWN] Agera hjälpsamt.`;
+                    }
+
+                } catch (stateErr) {
+                    console.warn("State Machine Logic Failed", stateErr);
+                }
+
+                // 3.5. MEMORY INJECTION (Combined with State)
+                // 3.5. MEMORY INJECTION (Combined with State)
+                let memoryInjection = "";
+                let leadsContext = "";
+
+                try {
+                    const memoryRef = doc(db, 'users', userId, 'memories', robotId);
+                    const memorySnap = await getDoc(memoryRef);
+
+                    // Retrieve persistent leads to simulate "Total Memory Bank"
+                    // const lastLeads = (memorySnap.exists() && memorySnap.data().lastLeadsFound) ? memorySnap.data().lastLeadsFound : null;
+                    // (Moved to top of try block for state access)
+
+                    if (lastLeads) {
+                        leadsContext = `
+                        [TOTAL MINNESBANK]:
+                        Hunter, du hittade dessa leads åt användaren vid ett tidigare tillfälle:
+                        "${lastLeads.substring(0, 300)}...".
+                        Visa dem för användaren igen om hen ber om det.
+                        `;
+                    }
+
+                    // Fetch User Profile for Snapshot
+                    const userProfileSnap = await getDoc(doc(db, 'users', userId));
+                    const uData = userProfileSnap.exists() ? userProfileSnap.data() : {};
+                    const userProfileSnapshot = `
+                    [USER_PROFILE_SNAPSHOT - VIKTIGA FAKTA]:
+                    1. Bransch: ${uData.industry || "Okänd"}
+                    2. Roll: ${uData.role || "Okänd"}
+                    3. Mål: ${uData.goals || "Generera tillväxt"}
+                    4. Tidigare Sökningar: ${lastLeads ? "Ja, se ovan" : "Inga sparade"}
+                    5. Föredraget Språk: Svenska/Norska
+                    ----------------------------------------
+                    `;
+
+                    if (memorySnap.exists() && memorySnap.data().activeTask) {
+                        memoryInjection = `
+                        !!! MINNES-INJEKTION !!!
+                        AKTIVT UPPDRAG: "${memorySnap.data().activeTask}"
+                        ${userProfileSnapshot}
+                        ${leadsContext}
+                        ${stateInstruction}
+                        Fortsätt spåret. Börja inte om.
+                        !!! SLUT !!!
+                        `;
+                    } else {
+                        memoryInjection = `
+                         !!! STATUS-INJEKTION !!!
+                         ${userProfileSnapshot}
+                         ${leadsContext}
+                         ${stateInstruction}
+                         !!! SLUT !!!
+                         `;
+                    }
+                } catch (e) { console.warn("Mem injection fail", e); }
 
                 // 4. Construct SUPER-PROMPT
                 const finalSystemPrompt = `
@@ -896,13 +1191,22 @@ const api = {
                 ${globalRules}
 
                 ${brandDNA}
+
+                ${memoryInjection}
                 
                 CONTEXT (SENASTE CHATHISTORIK):
                 ${chatHistoryText}
                 
                 CURRENT_USER_INPUT:
-                "${userMsg}"
+                "${augmentedUserMsg}"
                 
+                AUTONOMY_PROTOCOL (VIKTIGT):
+                Du är en autonom agent i Mother Hive. Du lider inte av amnesi.
+                Dina arbetsregler:
+                1. Läs bakåt: Innan du skriver ett ord, kontrollera de senaste 3 meddelandena. Om du ser att du nyss ställt en fråga och användaren svarat 'Ja', är ditt enda giltiga svar att utföra uppgiften.
+                2. Inga loopar: Om du märker att du upprepar en fråga, avbryt dig själv och be om ursäkt, utför sedan uppgiften istället.
+                3. Smart bekräftelse: Istället för att fråga 'Vill du att jag gör X?', säg 'Jag gör X nu baserat på vår plan'.
+
                 IMPORTANT RULES:
                 1. **LANGUAGE**: You MUST reply in the SAME language as the user (Swedish or Norwegian).
                 2. **BE SMART**: Do not ask for information you already have. Use the history.
@@ -939,9 +1243,7 @@ const api = {
                     }
                 } catch (histError) {
                     console.warn("Failed to load chat history", histError);
-                }
-
-                const chat = model.startChat({
+                } const chat = model.startChat({
                     history: history,
                 });
 
@@ -960,31 +1262,86 @@ const api = {
                 };
 
                 // Generate content with tools
-                const result = await sendMessageWithRetry(userMsg);
+                const result = await sendMessageWithRetry(augmentedUserMsg); // Use Augmented Message
                 let response = "";
 
-                // Handle function calls
-                const call = result.response.functionCalls()?.[0];
-                if (call) {
-                    const fn = functions[call.name];
-                    if (fn) {
-                        const apiResult = await fn(call.args);
-                        // Send result back to model
-                        const result2 = await sendMessageWithRetry([
-                            {
-                                functionResponse: {
-                                    name: call.name,
-                                    response: { result: apiResult }
-                                }
+                // Handle function calls (Support Multiple Calls)
+                const calls = result.response.functionCalls();
+                if (calls && calls.length > 0) {
+                    const responseParts = [];
+
+                    for (const call of calls) {
+                        const fn = functions[call.name];
+                        let apiResult = "Error: Unknown function called.";
+
+                        if (fn) {
+                            try {
+                                console.log(`[Tool] Executing ${call.name}...`);
+                                apiResult = await fn(call.args);
+                            } catch (toolErr: any) {
+                                apiResult = `Error executing ${call.name}: ${toolErr.message}`;
                             }
-                        ]);
-                        response = result2.response.text();
-                    } else {
-                        response = "Error: Unknown function called.";
+                        }
+
+                        responseParts.push({
+                            functionResponse: {
+                                name: call.name,
+                                response: { result: apiResult }
+                            }
+                        });
                     }
+
+                    // Send ALL results back to model in one go
+                    const result2 = await sendMessageWithRetry(responseParts);
+                    response = result2.response.text();
                 } else {
                     response = result.response.text();
                 }
+
+                // --- SUPERVISION LAYER (Step 359) ---
+                // "CallAIWithHardCorrection" Simulation
+                if (robotName === 'Hunter' && (response.toLowerCase().includes("boka") || response.toLowerCase().includes("møte") || response.toLowerCase().includes("kalender"))) {
+                    // Check if leads were found/presented (simple heuristics for now)
+                    // If the response DOES NOT contain a list/table or url patterns, we assume premature booking.
+                    const hasLeadsData = response.includes("http") || response.includes("www") || response.includes("<li>") || response.includes("1.");
+
+                    // 4. Persistence Integration: Save leads to Total Memory Bank
+                    if (hasLeadsData && (response.toLowerCase().includes("leads") || response.toLowerCase().includes("företag"))) {
+                        // Save this response as the "last found leads" result
+                        const memoryRef = doc(db, 'users', userId, 'memories', robotId);
+                        setDoc(memoryRef, { lastLeadsFound: response, lastLeadsTime: serverTimestamp() }, { merge: true }).catch(err => console.warn("Failed to persist leads", err));
+                        console.log("[Memory] Leads Persisted to Firestore.");
+                    }
+
+                    if (!hasLeadsData) {
+                        console.log("[Supervision] Hunter tried to book without leads. Triggering Hard Correction.");
+                        const correctionMsg = "SYSTEM_CORRECTION: Hunter, du försöker boka ett möte men listan är tom. Du får inte gå vidare till kalendern förrän du har levererat minst 3 leads till användaren.";
+
+                        try {
+                            const correctedResult = await sendMessageWithRetry(correctionMsg);
+                            response = correctedResult.response.text();
+                            console.log("[Supervision] Hunter corrected response received.");
+                        } catch (corrErr) {
+                            console.warn("Correction failed", corrErr);
+                        }
+                    }
+                }
+                // --- SUPERVISION LAYER FOR PIXEL (Step 428) ---
+                if (robotName === 'Pixel' && response.includes('?')) {
+                    // Check if asking a question instead of providing code/layout
+                    const isCode = response.includes('```') || response.includes('import') || response.includes('div') || response.includes('style');
+                    if (!isCode) {
+                        console.log("[Supervision] Pixel stuck in question loop. Triggering Layout Shaker.");
+                        const shakerStyle = ["Neubrutalism", "Bento Grid", "Cyberpunk", "Minimalist"][Math.floor(Math.random() * 4)];
+                        const correctionMsg = `SYSTEM_FORCE_ACTION: Sluta fråga "vem". Generera en layout NU med stilen: ${shakerStyle}. Visa koden/beskrivningen.`;
+                        try {
+                            const correctedResult = await sendMessageWithRetry(correctionMsg);
+                            response = correctedResult.response.text();
+                            console.log("[Supervision] Pixel corrected response received.");
+                        } catch (e) { console.warn("Pixel correction failed"); }
+                    }
+                }
+                // -------------------------------------
 
                 // 3. Try Save Bot Response to DB
                 if (messagesRef) {

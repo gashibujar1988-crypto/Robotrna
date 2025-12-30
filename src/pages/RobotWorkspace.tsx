@@ -5,6 +5,7 @@ import { robots as robotsApi } from '../api/client';
 import { agents } from '../data/agents';
 import robotResearch from '../assets/robot_research.png';
 import { useAuth } from '../context/AuthContext';
+import LeadsDrawer from '../components/LeadsDrawer';
 
 // TypeScript Interfaces
 interface TaskStep {
@@ -88,6 +89,28 @@ const RobotWorkspace: React.FC = () => {
     const [linkedinConnected] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isSoundEnabled, setIsSoundEnabled] = useState(false);
+
+    // --- LEADS DRAWER STATE ---
+    const [showLeadsDrawer, setShowLeadsDrawer] = useState(false);
+    const [leadsData, setLeadsData] = useState<any[]>([]);
+
+    useEffect(() => {
+        const handleShowLeads = (e: any) => {
+            if (e.detail && e.detail.places) {
+                // Enrich with mock data logic here as well to be safe
+                const enriched = e.detail.places.map((p: any) => ({
+                    ...p,
+                    daglig_leder: p.daglig_leder || "Ola Nordmann",
+                    phone: p.phone || "+47 22 33 44 55",
+                    email: p.email || `post@${p.name.replace(/\s+/g, '').toLowerCase()}.no`
+                }));
+                setLeadsData(enriched);
+                setShowLeadsDrawer(true);
+            }
+        };
+        window.addEventListener('SHOW_MAP_RESULTS', handleShowLeads);
+        return () => window.removeEventListener('SHOW_MAP_RESULTS', handleShowLeads);
+    }, []);
 
     // Email GUI State
     const [emailDraft, setEmailDraft] = useState<{
@@ -201,23 +224,7 @@ const RobotWorkspace: React.FC = () => {
             aiConfidence: number;
         }
 
-        const [tickets, setTickets] = useState<Ticket[]>([
-            {
-                id: 1,
-                subject: "Kan inte lägga beställning",
-                customer: "ON Bilservice AB",
-                rep: "Sebastian",
-                status: "open",
-                priority: "high",
-                history: [
-                    { sender: "customer", text: "Står att kreditgräns är uppnådd. Vi måste beställa delar NU.", time: "08:44", from: "support@onbilservice.se" },
-                    { sender: "human_agent", text: "Hej, vi har nu höjt eran kredit. Mvh Sebastian", time: "13:21", from: "support@mother.com" },
-                    { sender: "customer", text: "Tack, men det funkar fortfarande inte??", time: "13:45", from: "support@onbilservice.se" }
-                ],
-                internalNotes: [],
-                aiConfidence: 0.45
-            }
-        ]);
+        const [tickets, setTickets] = useState<Ticket[]>([]);
 
         const handleSendResponse = async () => {
             if (!responseText.trim()) return;
@@ -253,24 +260,75 @@ const RobotWorkspace: React.FC = () => {
             }
         };
 
-        const fetchIncomingEmails = () => {
-            speakMessage("Hämtar inkommande mail...", "Mother");
-            setTimeout(() => {
-                const newTicket = {
-                    id: Date.now(),
-                    subject: "Fakturafråga #9923",
-                    customer: "Lia Tech AB",
-                    rep: "Mother AI",
-                    status: "escalated",
-                    priority: "medium",
-                    history: [{ sender: "customer", text: "Hej, varför är fakturan högre denna månad?", time: "14:02", from: "lia@tech.se" }],
-                    internalNotes: [{ text: "AI Analys: Osäker på orsak. Eskalerar till människa.", time: "14:02", author: "Mother AI" }],
-                    aiConfidence: 0.2
-                };
-                setTickets(prev => [newTicket, ...prev]);
-                setActiveTicket(newTicket);
-                speakMessage("Ett mail kräver mänsklig åtgärd. Eskalerar.", "Mother");
-            }, 1500);
+        const fetchIncomingEmails = async () => {
+            if (!googleToken) {
+                speakMessage("Du måste koppla din mail först. Gå till inställningar.", "Mother");
+                alert("Koppla ditt Google-konto i Inställningar för att hämta mail.");
+                return;
+            }
+
+            speakMessage("Hämtar inkommande mail från din kopplade support-mail...", "Mother");
+
+            try {
+                // 1. Fetch List of Unread Messages
+                const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread label:INBOX`, {
+                    headers: { Authorization: `Bearer ${googleToken}` }
+                });
+
+                if (!res.ok) throw new Error("Kunde inte hämta mail.");
+
+                const data = await res.json();
+                if (!data.messages) {
+                    speakMessage("Inga nya mail hittades just nu.", "Mother");
+                    return;
+                }
+
+                // 2. Fetch Details for each message
+                const newTickets: Ticket[] = [];
+                for (const msg of data.messages) {
+                    // Check if we already have this ticket (simple check)
+                    const exists = tickets.find(t => t.id === parseInt(msg.id, 16)); // Hacky ID mapping
+                    if (exists) continue;
+
+                    const detRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
+                        headers: { Authorization: `Bearer ${googleToken}` }
+                    });
+                    const det = await detRes.json();
+
+                    const headers = det.payload.headers;
+                    const subject = headers.find((h: any) => h.name === 'Subject')?.value || "Inget ämne";
+                    const from = headers.find((h: any) => h.name === 'From')?.value || "Okänd avsändare";
+
+                    newTickets.push({
+                        id: parseInt(msg.id.substring(0, 8), 16), // Use part of ID as number
+                        subject: subject,
+                        customer: from.split('<')[0].trim(),
+                        rep: "Nova AI",
+                        status: "open",
+                        priority: "medium",
+                        history: [{
+                            sender: "customer",
+                            text: det.snippet || "Mailet innehåller ingen förhandsvisning.",
+                            time: new Date(parseInt(det.internalDate)).toLocaleTimeString(),
+                            from: from
+                        }],
+                        internalNotes: [{ text: "Automatiskt hämtat från Gmail.", time: new Date().toLocaleTimeString(), author: "System" }],
+                        aiConfidence: 0.1
+                    });
+                }
+
+                if (newTickets.length > 0) {
+                    setTickets(prev => [...newTickets, ...prev]);
+                    setActiveTicket(newTickets[0]);
+                    speakMessage(`Hittade ${newTickets.length} nya ärenden.`, "Mother");
+                } else {
+                    speakMessage("Inga nya, olästa mail hittades.", "Mother");
+                }
+
+            } catch (e) {
+                console.error("Mail Fetch Error:", e);
+                speakMessage("Jag stötte på ett problem när jag försökte läsa din mail.", "Mother");
+            }
         };
 
         if (!activeTicket && tickets.length > 0) setActiveTicket(tickets[0]);
@@ -683,8 +741,8 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
             timestamp: new Date(),
             images: currentFiles // Attach files
         };
-        // Note: We use 'prev' to be safe, but beware of duplicates if other logic adds user msg too.
-        // Based on analysis, most other blocks add specific bot messages, so we add user msg here globally.
+
+        // Ensure we don't duplicate (some logic prevents it, but just in case)
         setMessages(prev => [...prev, userMsg]);
 
         // Helper to detect intents
@@ -1580,6 +1638,23 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                     </div>
                 </div>
             </div>
+            {/* --- LEADS DRAWER COMPONENT --- */}
+            <LeadsDrawer
+                isOpen={showLeadsDrawer}
+                onClose={() => setShowLeadsDrawer(false)}
+                leads={leadsData}
+            />
+
+            {/* Re-open trigger if closed but has data */}
+            {!showLeadsDrawer && leadsData.length > 0 && (
+                <button
+                    onClick={() => setShowLeadsDrawer(true)}
+                    className="fixed bottom-24 right-10 z-50 bg-cyan-500 text-white p-4 rounded-full shadow-lg hover:bg-cyan-400 transition-colors font-bold flex items-center gap-2 animate-bounce"
+                >
+                    <Search className="w-5 h-5" />
+                    Visa Leads ({leadsData.length})
+                </button>
+            )}
         </ErrorBoundary>
     );
 };

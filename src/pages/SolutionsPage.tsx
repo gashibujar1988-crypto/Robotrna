@@ -6,30 +6,30 @@ import { Link } from 'react-router-dom';
 
 const SolutionsPage: React.FC = () => {
     return (
-        <div className="bg-white pt-20">
+        <div className="bg-white dark:bg-[#0F1623] pt-20 transition-colors duration-300">
             {/* Hero Section */}
             <section className="relative py-24 overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-100/50 via-white to-white pointer-events-none" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-100/50 via-white to-white dark:from-purple-900/20 dark:via-[#0F1623] dark:to-[#0F1623] pointer-events-none" />
 
                 <div className="container mx-auto px-4 relative z-10">
                     <div className="max-w-4xl mx-auto text-center mb-16">
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="inline-flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-full px-4 py-1.5 mb-6"
+                            className="inline-flex items-center gap-2 bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded-full px-4 py-1.5 mb-6"
                         >
                             <span className="flex h-2 w-2 relative">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
                                 <span className="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
                             </span>
-                            <span className="text-sm font-semibold text-purple-700 tracking-wide uppercase">Framtidens Arbetskraft</span>
+                            <span className="text-sm font-semibold text-purple-700 dark:text-purple-300 tracking-wide uppercase">Framtidens Arbetskraft</span>
                         </motion.div>
 
                         <motion.h1
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.1 }}
-                            className="text-5xl md:text-7xl font-bold text-gray-900 mb-8 tracking-tight"
+                            className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white mb-8 tracking-tight"
                         >
                             Lösningar som <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">Skalar</span> Med Dig
                         </motion.h1>
@@ -38,7 +38,7 @@ const SolutionsPage: React.FC = () => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.2 }}
-                            className="text-xl text-gray-600 leading-relaxed max-w-2xl mx-auto"
+                            className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed max-w-2xl mx-auto"
                         >
                             Oavsett om du behöver automatisera kundsupport, öka försäljningen eller analysera komplex data, har Brain AI en skräddarsydd lösning redo att integreras i din verksamhet.
                         </motion.p>
@@ -47,7 +47,7 @@ const SolutionsPage: React.FC = () => {
             </section>
 
             {/* Main Solutions Grid */}
-            <section className="py-20 bg-gray-50/50">
+            <section className="py-20 bg-gray-50/50 dark:bg-gray-900/50">
                 <div className="container mx-auto px-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {solutions.map((item, index) => (
@@ -57,24 +57,24 @@ const SolutionsPage: React.FC = () => {
                                 whileInView={{ opacity: 1, y: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ delay: index * 0.1 }}
-                                className="bg-white rounded-3xl p-8 border border-gray-100 hover:shadow-xl hover:border-purple-200 hover:-translate-y-1 transition-all duration-300 group"
+                                className="bg-white dark:bg-gray-800 rounded-3xl p-8 border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-purple-200 dark:hover:border-purple-900 hover:-translate-y-1 transition-all duration-300 group"
                             >
-                                <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                                <div className={`w-14 h-14 rounded-2xl ${item.bg} dark:bg-opacity-10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                                     <item.icon className={`w-8 h-8 ${item.color}`} />
                                 </div>
-                                <h3 className="text-2xl font-bold text-gray-900 mb-3">{item.title}</h3>
-                                <p className="text-gray-600 mb-6 leading-relaxed">
+                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">{item.title}</h3>
+                                <p className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
                                     {item.desc}
                                 </p>
                                 <ul className="space-y-3 mb-8">
                                     {item.features.map((feature, i) => (
-                                        <li key={i} className="flex items-center gap-3 text-sm text-gray-700 font-medium">
+                                        <li key={i} className="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-300 font-medium">
                                             <CheckCircle2 className={`w-4 h-4 ${item.color}`} />
                                             {feature}
                                         </li>
                                     ))}
                                 </ul>
-                                <Link to={item.link} className="inline-flex items-center text-sm font-bold text-gray-900 hover:text-purple-600 transition-colors">
+                                <Link to={item.link} className="inline-flex items-center text-sm font-bold text-gray-900 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
                                     Utforska agent <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                                 </Link>
                             </motion.div>
@@ -84,13 +84,13 @@ const SolutionsPage: React.FC = () => {
             </section>
 
             {/* Enterprise / Security Section */}
-            <section className="py-24 bg-white">
+            <section className="py-24 bg-white dark:bg-[#0F1623]">
                 <div className="container mx-auto px-4">
                     <div className="flex flex-col lg:flex-row items-center gap-16">
                         <div className="lg:w-1/2">
-                            <div className="inline-block bg-blue-100 text-blue-700 font-bold px-4 py-1 rounded-full text-sm mb-6">Enterprise Ready</div>
-                            <h2 className="text-4xl font-bold text-gray-900 mb-6">Säkerhet och Skalbarhet i Första Rummet</h2>
-                            <p className="text-gray-600 text-lg mb-8">
+                            <div className="inline-block bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold px-4 py-1 rounded-full text-sm mb-6">Enterprise Ready</div>
+                            <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-6">Säkerhet och Skalbarhet i Första Rummet</h2>
+                            <p className="text-gray-600 dark:text-gray-400 text-lg mb-8">
                                 Vi förstår att din data är ovärderlig. Därför är Brain AI byggt med branschledande säkerhetsstandarder och GDPR-compliance i grunden.
                             </p>
 
@@ -98,15 +98,15 @@ const SolutionsPage: React.FC = () => {
                                 <div className="flex items-start gap-4">
                                     <Shield className="w-6 h-6 text-green-600 mt-1" />
                                     <div>
-                                        <h4 className="font-bold text-gray-900">Total Datakryptering</h4>
-                                        <p className="text-sm text-gray-500 mt-1">All data krypteras både vid lagring och överföring (AES-256).</p>
+                                        <h4 className="font-bold text-gray-900 dark:text-white">Total Datakryptering</h4>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">All data krypteras både vid lagring och överföring (AES-256).</p>
                                     </div>
                                 </div>
                                 <div className="flex items-start gap-4">
                                     <Zap className="w-6 h-6 text-yellow-600 mt-1" />
                                     <div>
-                                        <h4 className="font-bold text-gray-900">99.9% Uptime</h4>
-                                        <p className="text-sm text-gray-500 mt-1">Redundant infrastruktur garanterar att dina agenter alltid är vakna.</p>
+                                        <h4 className="font-bold text-gray-900 dark:text-white">99.9% Uptime</h4>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Redundant infrastruktur garanterar att dina agenter alltid är vakna.</p>
                                     </div>
                                 </div>
                             </div>

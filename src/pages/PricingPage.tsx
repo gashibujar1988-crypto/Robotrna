@@ -5,8 +5,10 @@ import PaymentModal from '../components/PaymentModal';
 
 // Import Robot Images for Visual Impact
 import robotSocial from '../assets/robot_social.png';
-import robotLeads from '../assets/robot_leads.png';
+
+import robotBusiness from '../assets/robot_business_green.jpg'; // Using the user uploaded image directly
 import robotAtlas from '../assets/robot_atlas_new.png'; // Using Atlas for the top tier
+import enterpriseBanner from '../assets/pricing_enterprise_banner.jpg';
 
 const plans = [
     {
@@ -33,7 +35,7 @@ const plans = [
         currency: "kr",
         period: "/mån",
         description: "För växande företag som behöver ett dedikerat AI-team för att skala.",
-        image: robotLeads,
+        image: robotBusiness,
         color: "from-purple-500 to-pink-500",
         shadow: "shadow-purple-500/30",
         features: [
@@ -147,16 +149,17 @@ const PricingPage: React.FC = () => {
                                     {/* Background Glow inside card */}
                                     <div className={`absolute top-0 inset-x-0 h-40 bg-gradient-to-b ${plan.color} opacity-10 blur-3xl`} />
 
-                                    {/* Robot Image - Floating */}
-                                    <div className="relative w-48 h-48 mb-6 -mt-10">
-                                        <div className={`absolute inset-0 bg-gradient-to-t ${plan.color} opacity-30 blur-2xl rounded-full`} />
-                                        <motion.img
-                                            animate={{ y: [-10, 10, -10] }}
-                                            transition={{ duration: 4 + i, repeat: Infinity, ease: "easeInOut" }}
-                                            src={plan.image}
-                                            alt={plan.title}
-                                            className="w-full h-full object-contain relative z-10 drop-shadow-2xl"
-                                        />
+                                    {/* Robot Image - Styled "Window" or "Portrait" */}
+                                    <div className="relative w-full aspect-square max-w-[220px] mx-auto mb-8 group-hover:scale-105 transition-transform duration-500">
+                                        <div className={`absolute inset-0 bg-gradient-to-tr ${plan.color} opacity-20 blur-2xl rounded-full`} />
+                                        <div className="relative w-full h-full rounded-[2rem] overflow-hidden border-2 border-white/10 shadow-2xl">
+                                            <div className={`absolute inset-0 bg-gradient-to-b ${plan.color} opacity-10 mix-blend-overlay z-20`} />
+                                            <motion.img
+                                                src={plan.image}
+                                                alt={plan.title}
+                                                className="w-full h-full object-cover transform scale-110" // Slightly scaled to crop edges if needed
+                                            />
+                                        </div>
                                     </div>
 
                                     {/* Title & Description */}
@@ -212,8 +215,11 @@ const PricingPage: React.FC = () => {
                     viewport={{ once: true }}
                     className="mt-32 relative rounded-[3rem] overflow-hidden"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-900 via-indigo-900 to-black z-0" />
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-30 z-0" />
+                    <div className="absolute inset-0 z-0">
+                        {/* Banner Image Background */}
+                        <img src={enterpriseBanner} alt="Enterprise Background" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-purple-900/80 to-black/90" />
+                    </div>
 
                     <div className="relative z-10 grid md:grid-cols-2 gap-12 items-center p-12 md:p-20">
                         <div>

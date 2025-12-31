@@ -37,25 +37,25 @@ const FAQSection: React.FC = () => {
     };
 
     return (
-        <section className="py-24 bg-white">
+        <section className="py-24 bg-white dark:bg-[#0F1623] transition-colors duration-300">
             <div className="container mx-auto px-4 max-w-3xl">
                 <div className="text-center mb-16">
-                    <h2 className="text-4xl font-bold mb-4 text-gray-900">Vanliga frågor</h2>
-                    <p className="text-gray-600">Allt du behöver veta för att komma igång.</p>
+                    <h2 className="text-4xl font-bold mb-4 text-gray-900 dark:text-white">Vanliga frågor</h2>
+                    <p className="text-gray-600 dark:text-gray-400">Allt du behöver veta för att komma igång.</p>
                 </div>
 
                 <div className="space-y-4">
                     {faqData.map((item, index) => (
                         <div
                             key={index}
-                            className="bg-white border border-gray-100 rounded-2xl overflow-hidden hover:border-purple-200 transition-colors shadow-sm"
+                            className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden hover:border-purple-200 dark:hover:border-purple-900 transition-colors shadow-sm"
                         >
                             <button
                                 onClick={() => toggleAccordion(index)}
-                                className="w-full flex items-center justify-between p-6 text-left focus:outline-none bg-gray-50/50 hover:bg-gray-50 transition-colors"
+                                className="w-full flex items-center justify-between p-6 text-left focus:outline-none bg-gray-50/50 dark:bg-gray-800/50 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                             >
-                                <span className="text-lg font-bold text-gray-900 pr-8">{item.question}</span>
-                                <div className={`p-2 rounded-full transition-colors ${activeIndex === index ? 'bg-purple-600 text-white' : 'bg-white text-gray-400 border border-gray-200'}`}>
+                                <span className="text-lg font-bold text-gray-900 dark:text-gray-100 pr-8">{item.question}</span>
+                                <div className={`p-2 rounded-full transition-colors ${activeIndex === index ? 'bg-purple-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-400 dark:text-gray-300 border border-gray-200 dark:border-gray-600'}`}>
                                     {activeIndex === index ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                                 </div>
                             </button>
@@ -68,7 +68,7 @@ const FAQSection: React.FC = () => {
                                         exit={{ height: 0, opacity: 0 }}
                                         transition={{ duration: 0.3, ease: "easeInOut" }}
                                     >
-                                        <div className="px-6 pb-6 text-gray-600 leading-relaxed border-t border-gray-100 pt-4 bg-white">
+                                        <div className="px-6 pb-6 text-gray-600 dark:text-gray-300 leading-relaxed border-t border-gray-100 dark:border-gray-700 pt-4 bg-white dark:bg-gray-800">
                                             {item.answer}
                                         </div>
                                     </motion.div>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Share2, Mic, Paperclip, Send, X, Image as ImageIcon, ChevronRight, Check, Search, Reply, Sparkles, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { Share2, Mic, Send, X, Image as ImageIcon, ChevronRight, Check, Search, Sparkles, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
 import { robots as robotsApi } from '../api/client';
 import { agents } from '../data/agents';
 import robotResearch from '../assets/robot_research.png';
 import { useAuth } from '../context/AuthContext';
 import LeadsDrawer from '../components/LeadsDrawer';
+import InternalSupportDesk from '../components/InternalSupportDesk';
 
 // TypeScript Interfaces
 interface TaskStep {
@@ -72,7 +73,7 @@ interface Message {
 const RobotWorkspace: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { } = useAuth();
     const [robot, setRobot] = useState<any>(null);
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
@@ -204,296 +205,32 @@ const RobotWorkspace: React.FC = () => {
 
 
 
-    // --- SUPPORT DESK COMPONENT ---
-    const SupportDesk = () => {
-        const [activeTicket, setActiveTicket] = useState<any>(null);
-        const [replyMode, setReplyMode] = useState<'public' | 'internal'>('public');
-        const [responseText, setResponseText] = useState('');
-        const [sideChat, setSideChat] = useState<{ sender: string, text: string }[]>([]);
-        const [sideInput, setSideInput] = useState('');
+    // Support Desk Logic replaced by SupportPage component
 
-        interface Ticket {
-            id: number;
-            subject: string;
-            customer: string;
-            rep: string;
-            status: string;
-            priority: string;
-            history: { sender: string; text: string; time: string; from: string; }[];
-            internalNotes: { text: string; time: string; author: string; }[];
-            aiConfidence: number;
-        }
-
-        const [tickets, setTickets] = useState<Ticket[]>([]);
-
-        const handleSendResponse = async () => {
-            if (!responseText.trim()) return;
-            if (replyMode === 'internal') {
-                const updatedTickets = tickets.map(t => {
-                    if (t.id === activeTicket.id) {
-                        return {
-                            ...t,
-                            internalNotes: [...(t.internalNotes || []), { text: responseText, time: new Date().toLocaleTimeString(), author: user?.name || 'Staff' }]
-                        };
-                    }
-                    return t;
-                });
-                setTickets(updatedTickets);
-                setActiveTicket(updatedTickets.find(t => t.id === activeTicket.id));
-                setResponseText('');
-            } else {
-                if (!googleToken) { alert("Login required"); return; }
-                alert(`Skickar svar till ${activeTicket.customer}: "${responseText}"`);
-                const updatedTickets = tickets.map(t => {
-                    if (t.id === activeTicket.id) {
-                        return {
-                            ...t,
-                            history: [...t.history, { sender: "human_agent", text: responseText, time: new Date().toLocaleTimeString(), from: user?.email || "me" }],
-                            status: 'resolved'
-                        };
-                    }
-                    return t;
-                });
-                setTickets(updatedTickets);
-                setActiveTicket(updatedTickets.find(t => t.id === activeTicket.id));
-                setResponseText('');
-            }
-        };
-
-        const fetchIncomingEmails = async () => {
-            if (!googleToken) {
-                speakMessage("Du måste koppla din mail först. Gå till inställningar.", "Mother");
-                alert("Koppla ditt Google-konto i Inställningar för att hämta mail.");
-                return;
-            }
-
-            speakMessage("Hämtar inkommande mail från din kopplade support-mail...", "Mother");
-
-            try {
-                // 1. Fetch List of Unread Messages
-                const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread label:INBOX`, {
-                    headers: { Authorization: `Bearer ${googleToken}` }
-                });
-
-                if (!res.ok) throw new Error("Kunde inte hämta mail.");
-
-                const data = await res.json();
-                if (!data.messages) {
-                    speakMessage("Inga nya mail hittades just nu.", "Mother");
-                    return;
-                }
-
-                // 2. Fetch Details for each message
-                const newTickets: Ticket[] = [];
-                for (const msg of data.messages) {
-                    // Check if we already have this ticket (simple check)
-                    const exists = tickets.find(t => t.id === parseInt(msg.id, 16)); // Hacky ID mapping
-                    if (exists) continue;
-
-                    const detRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`, {
-                        headers: { Authorization: `Bearer ${googleToken}` }
-                    });
-                    const det = await detRes.json();
-
-                    const headers = det.payload.headers;
-                    const subject = headers.find((h: any) => h.name === 'Subject')?.value || "Inget ämne";
-                    const from = headers.find((h: any) => h.name === 'From')?.value || "Okänd avsändare";
-
-                    newTickets.push({
-                        id: parseInt(msg.id.substring(0, 8), 16), // Use part of ID as number
-                        subject: subject,
-                        customer: from.split('<')[0].trim(),
-                        rep: "Nova AI",
-                        status: "open",
-                        priority: "medium",
-                        history: [{
-                            sender: "customer",
-                            text: det.snippet || "Mailet innehåller ingen förhandsvisning.",
-                            time: new Date(parseInt(det.internalDate)).toLocaleTimeString(),
-                            from: from
-                        }],
-                        internalNotes: [{ text: "Automatiskt hämtat från Gmail.", time: new Date().toLocaleTimeString(), author: "System" }],
-                        aiConfidence: 0.1
-                    });
-                }
-
-                if (newTickets.length > 0) {
-                    setTickets(prev => [...newTickets, ...prev]);
-                    setActiveTicket(newTickets[0]);
-                    speakMessage(`Hittade ${newTickets.length} nya ärenden.`, "Mother");
-                } else {
-                    speakMessage("Inga nya, olästa mail hittades.", "Mother");
-                }
-
-            } catch (e) {
-                console.error("Mail Fetch Error:", e);
-                speakMessage("Jag stötte på ett problem när jag försökte läsa din mail.", "Mother");
-            }
-        };
-
-        if (!activeTicket && tickets.length > 0) setActiveTicket(tickets[0]);
-
-        return (
-            <div className="flex h-full w-full bg-[#f8f9fa] text-gray-800 font-sans overflow-hidden">
-                <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
-                    <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                        <h3 className="font-bold text-lg">Ärenden</h3>
-                        <button onClick={fetchIncomingEmails} className="p-2 bg-purple-600 text-white rounded-lg text-xs hover:bg-purple-700">Hämta Nya</button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto">
-                        {tickets.map(t => (
-                            <div
-                                key={t.id}
-                                onClick={() => setActiveTicket(t)}
-                                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${activeTicket?.id === t.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''}`}
-                            >
-                                <div className="flex justify-between mb-1">
-                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${t.status === 'escalated' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{t.status}</span>
-                                    <span className="text-xs text-gray-400">14:02</span>
-                                </div>
-                                <h4 className="font-bold text-sm text-gray-900 truncate">{t.subject}</h4>
-                                <p className="text-xs text-gray-500">{t.customer}</p>
-                            </div>
-                        ))}
-                    </div>
-                    {activeTicket && (
-                        <div className="p-4 border-t border-gray-200 bg-gray-50 text-sm space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">Frågeställare</label>
-                                <div className="flex items-center gap-2 mt-1 bg-white p-2 border rounded">
-                                    <div className="w-6 h-6 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs">ON</div>
-                                    <span>{activeTicket.customer}</span>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-500 uppercase">Handläggare</label>
-                                <div className="flex items-center gap-2 mt-1 bg-white p-2 border rounded">
-                                    <div className="w-6 h-6 rounded-full bg-gray-800 text-white flex items-center justify-center text-xs">M</div>
-                                    <span>{activeTicket.status === 'escalated' ? 'VÄNTAR PÅ DIG' : activeTicket.rep}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div className="flex-1 flex flex-col bg-white">
-                    <div className="h-16 border-b border-gray-200 flex items-center justify-between px-6">
-                        <div>
-                            <h2 className="font-bold text-lg">{activeTicket?.subject}</h2>
-                            <span className="text-xs text-gray-400">Via e-post. Ärendet hanteras av AI.</span>
-                        </div>
-                        <div className="flex gap-2">
-                            <button className="p-2 hover:bg-gray-100 rounded text-gray-500"><Search className="w-4 h-4" /></button>
-                        </div>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-gray-50/30">
-                        {activeTicket?.history.map((msg: any, i: number) => (
-                            <div key={i} className={`flex gap-4 ${msg.sender === 'human_agent' || msg.sender === 'ai_agent' ? 'flex-row-reverse' : ''}`}>
-                                <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${msg.sender === 'customer' ? 'bg-indigo-100 text-indigo-700' : 'bg-black text-white'}`}>
-                                    {msg.sender === 'customer' ? 'K' : 'M'}
-                                </div>
-                                <div className={`max-w-[80%] rounded-xl p-4 shadow-sm border ${msg.sender === 'customer' ? 'bg-white border-gray-200' : 'bg-[#f0f9ff] border-blue-100'}`}>
-                                    <div className="flex justify-between items-center mb-2">
-                                        <span className="font-bold text-sm">{msg.from}</span>
-                                        <span className="text-xs text-gray-400">{msg.time}</span>
-                                    </div>
-                                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-                                </div>
-                            </div>
-                        ))}
-                        {activeTicket?.status === 'escalated' && (
-                            <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-center gap-3">
-                                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                                <span className="text-red-700 font-bold text-sm">AI OSÄKERHET: Mother AI kunde inte svara med hög konfidens (20%). En människa måste ta över.</span>
-                            </div>
-                        )}
-                        {activeTicket?.internalNotes?.length > 0 && (
-                            <div className="my-4 flex justify-center">
-                                <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-2 max-w-lg text-xs text-yellow-800 text-center">
-                                    <span className="font-bold block mb-1">INTERNA NOTERINGAR</span>
-                                    {activeTicket.internalNotes.map((n: any, i: number) => (
-                                        <div key={i} className="border-t border-yellow-200/50 pt-1 mt-1 first:border-0 first:pt-0 first:mt-0">
-                                            [{n.time}] {n.author}: {n.text}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                    <div className="p-4 border-t border-gray-200 bg-white">
-                        <div className="border border-gray-300 rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-blue-100 transition-all shadow-sm">
-                            <div className="flex border-b border-gray-200 bg-gray-50">
-                                <button
-                                    onClick={() => setReplyMode('public')}
-                                    className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${replyMode === 'public' ? 'border-gray-900 text-gray-900 bg-white' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    <Reply className="w-3 h-3 inline mr-2" />
-                                    Offentligt Svar
-                                </button>
-                                <button
-                                    onClick={() => setReplyMode('internal')}
-                                    className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors ${replyMode === 'internal' ? 'border-yellow-500 text-yellow-700 bg-yellow-50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                                >
-                                    Intern Anteckning
-                                </button>
-                            </div>
-                            <textarea
-                                value={responseText}
-                                onChange={(e) => setResponseText(e.target.value)}
-                                placeholder={replyMode === 'public' ? "Skriv ett svar till kunden..." : "Lägg till en intern notering för teamet..."}
-                                className={`w-full p-4 outline-none min-h-[120px] text-sm resize-none ${replyMode === 'internal' ? 'bg-yellow-50/30' : 'bg-white'}`}
-                            />
-                            <div className="p-2 flex justify-between items-center bg-gray-50 border-t border-gray-100">
-                                <div className="flex gap-2 text-gray-400">
-                                    <button className="p-1.5 hover:bg-gray-200 rounded"><Paperclip className="w-4 h-4" /></button>
-                                </div>
-                                <button
-                                    onClick={handleSendResponse}
-                                    className={`px-4 py-2 rounded-lg text-white font-bold text-sm transition-all ${replyMode === 'public' ? 'bg-gray-900 hover:bg-black' : 'bg-yellow-600 hover:bg-yellow-700'}`}
-                                >
-                                    {replyMode === 'public' ? 'Skicka' : 'Spara Anteckning'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="w-72 border-l border-gray-200 bg-white flex flex-col">
-                    <div className="p-4 border-b border-gray-200">
-                        <h3 className="font-bold text-sm text-gray-700">Sidokonversationer</h3>
-                    </div>
-                    <div className="flex-1 p-4 overflow-y-auto space-y-4">
-                        {sideChat.map((msg, i) => (
-                            <div key={i} className="text-xs bg-gray-50 p-2 rounded">
-                                <span className="font-bold block mb-0.5">{msg.sender}</span>
-                                {msg.text}
-                            </div>
-                        ))}
-                    </div>
-                    <div className="p-3 border-t border-gray-200">
-                        <input
-                            value={sideInput}
-                            onChange={(e) => setSideInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && sideInput.trim()) {
-                                    setSideChat([...sideChat, { sender: "Mig", text: sideInput }]);
-                                    setSideInput('');
-                                }
-                            }}
-                            placeholder="Diskutera internt..."
-                            className="w-full bg-gray-100 border-none rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-gray-300 outline-none"
-                        />
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
 
 
     useEffect(() => {
         const loadRobot = async () => {
-            // Find agent from local data instead of API
-            const found = agents.find(a => a.id === id || a.name.toLowerCase() === id?.toLowerCase());
+            // Find agent from local data or API fallback
+            let found = agents.find(a => a.id === id || a.name.toLowerCase() === id?.toLowerCase());
+
+            if (!found && id) {
+                try {
+                    const res = await robotsApi.list();
+                    const allRobots = (res.data as any[]) || [];
+                    const match = allRobots.find(r => r.id === id);
+                    if (match) {
+                        const staticData = agents.find(a => a.name.toLowerCase() === match.name.toLowerCase());
+                        if (staticData) {
+                            found = { ...staticData, id: match.id }; // Keep instance ID for chat history
+                        }
+                    }
+                } catch (e) {
+                    console.error("Failed to recover agent from API", e);
+                }
+            }
+
             if (found) setRobot(found);
 
             setViewMode('chat');
@@ -820,19 +557,23 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
             // For now, allow the loop to continue to "INTELLIGENT RESPONSE GENERATION" but Mother needs a special case there.
         }
 
-        // 3. HANDLE OPEN DRAFTS (Simulated "Tool Use")
+        // 3. HANDLE OPEN DRAFTS (Intercept ONLY specific commands)
         if (emailDraft && emailDraft.visible) {
-            // ... [Existing Email Logic - kept for continuity] ...
-            const msg: Message = { id: Date.now().toString(), sender: 'user', text: text, timestamp: new Date() };
-            setMessages(prev => [...prev, msg]);
-            if (lower.includes('skicka')) { handleSendMail(); return; }
-            if (lower.includes('avbryt')) { setEmailDraft(null); return; }
-
-            // Smart Dictation
-            const newBody = (emailDraft.body || '') + '\n' + text.replace(/skriv att/i, '').trim();
-            setEmailDraft(prev => prev ? ({ ...prev, body: newBody }) : null);
-            setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: '✍️ Uppdaterat.', timestamp: new Date(), agentName: robot.name }]);
-            return;
+            // Check for immediate commands
+            if (lower.includes('skicka') && !lower.includes('skriv')) { // "Skicka" but not "Skriv att jag vill skicka"
+                const msg: Message = { id: Date.now().toString(), sender: 'user', text: text, timestamp: new Date() };
+                setMessages(prev => [...prev, msg]);
+                handleSendMail();
+                return;
+            }
+            if (lower.includes('avbryt') || lower.includes('stäng')) {
+                const msg: Message = { id: Date.now().toString(), sender: 'user', text: text, timestamp: new Date() };
+                setMessages(prev => [...prev, msg]);
+                setEmailDraft(null);
+                return;
+            }
+            // For everything else (content, recipient changes), FALL THROUGH to the AI.
+            // The AI will use the [[ACTION:GMAIL_DRAFT]] tag to update the UI.
         }
 
         // 4. INTELLIGENT RESPONSE GENERATION (Simulated Hive-Mind)
@@ -1026,10 +767,10 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
         // B. NEW INTENT ANALYSIS (Based on Persona Keywords)
         if (!actionTriggered && !responseText) {
             // SPECIAL CASE: EMAIL / MEETING (Priority Check)
-            if (lower.includes('mail') || lower.includes('möte')) {
-                const subject = lower.includes('möte') ? 'Mötesförfrågan' : 'Uppdatering';
-                setEmailDraft({ visible: true, to: '', subject: subject, body: '', status: 'writing', currentBody: '' });
-                responseText = `Jag förbereder ett ${lower.includes('möte') ? 'mötesinbjudan' : 'mail'}.`;
+            // SPECIAL CASE: EMAIL / MEETING (Priority Check) - REMOVED TO ALLOW AI TO HANDLE IT
+            // if (lower.includes('mail') || lower.includes('möte')) { ... }
+            if (false) { // Disabled to let AI handle drafting
+                // ...
             }
             else {
                 const isRelevant = persona.keywords?.some((k: string) => lower.includes(k));
@@ -1097,6 +838,47 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
         }
 
         // 5. UPDATE UI
+        // D. OUTPUT PARSING (ACTION TAGS)
+        const actionRegex = /\[\[ACTION:([A-Z_]+)\|(.*?)\]\]/s;
+        const match = responseText.match(actionRegex);
+
+        if (match) {
+            const actionType = match[1];
+            const paramsRaw = match[2];
+            const params: any = {};
+
+            // Helper to parse "key:value|key2:value..." safely
+            try {
+                paramsRaw.split('|').forEach(p => {
+                    const firstColon = p.indexOf(':');
+                    if (firstColon > -1) {
+                        const k = p.substring(0, firstColon).trim();
+                        const v = p.substring(firstColon + 1).trim();
+                        params[k] = v;
+                    }
+                });
+
+                if (actionType === 'GMAIL_DRAFT') {
+                    const formattedBody = params.body ? params.body.replace(/\\n/g, '\n') : '';
+                    setEmailDraft({
+                        visible: true,
+                        to: params.to || '',
+                        subject: params.subject || '',
+                        body: formattedBody,
+                        status: 'writing',
+                        currentBody: ''
+                    });
+
+                    // Remove the tag from the spoken/displayed text to keep it clean
+                    responseText = responseText.replace(match[0], '').trim();
+
+                    if (!responseText) responseText = "Jag har förberett ett utkast åt dig.";
+                }
+            } catch (parseError) {
+                console.warn("Failed to parse Action Tag", parseError);
+            }
+        }
+
         // 5. UPDATE UI (Bot Response Only - User msg already added)
         const botMsg: Message = { id: (Date.now() + 1).toString(), sender: 'bot', text: responseText, timestamp: new Date(), agentName: robot.name };
 
@@ -1219,7 +1001,7 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                     {/* CONDITIONAL CONTENT */}
                     <div className="flex-1 overflow-hidden relative">
                         {viewMode === 'support' ? (
-                            <SupportDesk />
+                            <InternalSupportDesk googleToken={googleToken} />
                         ) : (
                             <div className="flex h-full">
                                 {/* CHAT COLUMN */}

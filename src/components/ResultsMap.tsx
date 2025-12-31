@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin } from 'lucide-react';
 
@@ -61,7 +61,7 @@ const ResultsMap = () => {
 
             const bounds = new window.google.maps.LatLngBounds();
 
-            places.forEach((place, index) => {
+            places.forEach((place) => {
                 // Geocode if location missing (Simulated for now if API doesn't return lat/lng directly)
                 // Ideally the API returns location. 
                 // For this demo, we might need to use the geocoder or just random offset if location missing

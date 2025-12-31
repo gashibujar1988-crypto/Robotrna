@@ -287,6 +287,24 @@ const api = {
             if (agent) {
                 robotName = agent.name;
                 robotRole = agent.role;
+            } else {
+                // Fallback: Check Firestore for dynamic robot instance
+                try {
+                    const rRef = doc(db, 'robots', robotId);
+                    const rSnap = await getDoc(rRef);
+                    if (rSnap.exists()) {
+                        const rData = rSnap.data();
+                        robotName = rData.name;
+                        robotRole = rData.type || rData.role || "Assistent";
+                        // Attempt to match back to static definition for richer role/prompt
+                        const staticMatch = agents.find(a => a.name.toLowerCase() === robotName.toLowerCase());
+                        if (staticMatch) {
+                            robotRole = staticMatch.role;
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`Failed to resolve dynamic robot ID ${robotId}`, e);
+                }
             }
 
             let resolvedModelName = "gemini-1.5-flash"; // Default for error scope visibility
@@ -1005,7 +1023,6 @@ const api = {
 
                             // SPECIAL TRIGGER: "stemmer" / "ja takk" -> Force Search Execution
                             if (userMsg.toLowerCase().includes("stemmer") || userMsg.toLowerCase().includes("ja takk")) {
-                                const mockLeads = "1. Oslo Digital (oslodigital.no) - Fokus på SEO. \n2. Kreativ Byrå A/S (kreativ.no) - Starka på branding. \n3. Nordic Web (nordicweb.com) - E-handelsspecialister.";
                                 augmentedUserMsg = `[SYSTEM INTERVENTION] Användaren sa "${userMsg}". 
                                 SYSTEMET HAR REDAN UTFÖRT SÖKNINGEN ÅT DIG.
                                 
@@ -1049,15 +1066,7 @@ const api = {
                     // --- STATE BEHAVIOR INJECTION ---
                     switch (currentState) {
                         case "IDENTIFY":
-                            // Prevent "Question Loop" if we are in EXECUTE
-                            if (currentState === "EXECUTE") {
-                                stateInstruction = `[STATE: EXECUTE]
-                                AGENT: EXECUTION MODE.
-                                KRAV: INGA FLERA FRÅGOR. 
-                                KRAV: ANVÄND VERKTYG "search_places" NU.`;
-                            } else if (currentState === "IDENTIFY") {
-                                stateInstruction = `[STATE: IDENTIFY] Ditt mål är att förstå vad användaren vill. Ställ korta, smarta frågor för att klargöra uppdraget. Gissa inte.`;
-                            }
+                            stateInstruction = `[STATE: IDENTIFY] Ditt mål är att förstå vad användaren vill. Ställ korta, smarta frågor för att klargöra uppdraget. Gissa inte.`;
                             break;
                         case "EXECUTE":
                             const currentTaskName = activeTask || "det aktiva uppdraget";
@@ -1100,6 +1109,31 @@ const api = {
                                 ${styleInstruction}
 
                                 Välj en och KÖR. Fråga inte vem det är till för.
+                                `;
+                            } else if (robotName === 'Dexter') {
+                                specificInstruction = `
+                                TOOL_INSTRUCTION: EMAIL_DRAFTING_PROTOCOL
+                                Användaren vill skicka mail. Du ska INTE bara säga att du gör det, du ska GENERERA UTKASTET.
+                                
+                                1. ANALYSERA INNEHÅLLET:
+                                   - Om användaren säger "skriv att jag kommer", formulera det proffsigt: "Hej, Jag bekräftar härmed..."
+                                   - Om epost saknas, lämna tomt eller gissa om det finns i historiken.
+                                   
+                                2. FORMATERA UTKASTET (VIKTIGT):
+                                   För att GUI ska fylla i fälten MÅSTE du inkludera denna exakta tagg i slutet av ditt svar:
+                                   [[ACTION:GMAIL_DRAFT|to:epost@exempel.se|subject:Ditt Ämne|body:Hela meddelandet här...]]
+                                   
+                                   Byt ut parametrarna mot det du genererat.
+                                   Använd "\\n" för radbrytningar i body.
+                                   
+                                3. UPPDATERINGAR:
+                                   Om användaren ger ny information (t.ex. "skicka till bujar@b2b.no" eller "ändra ämnet"), ska du generera HELA taggen igen med den NYA infon sammanslagen med det gamla.
+                                   Exempel: [[ACTION:GMAIL_DRAFT|to:bujar@b2b.no|subject:Ditt Ämne|body:Hela meddelandet...]]
+
+                                4. FÖRBJUDNA HANDLINGAR:
+                                   Du får INTE anropa verktyget/funktionen 'send_email' förrän användaren uttryckligen skriver "SKICKA NU".
+                                   Just nu uppdaterar vi bara utkastet (Draft Mode).
+                                   Ditt svar MÅSTE innehålla Action-taggen, annars ser inte användaren uppdateringen.
                                 `;
                             }
 

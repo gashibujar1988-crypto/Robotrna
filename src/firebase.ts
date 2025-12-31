@@ -12,14 +12,17 @@ const firebaseConfig = {
     appId: "1:379676193678:web:a7bd6347f51f5bb318aadf"
 };
 
+import { getMessaging } from "firebase/messaging";
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const messaging = getMessaging(app);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.addScope('https://www.googleapis.com/auth/gmail.send');
 googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 
-export { auth, db, googleProvider };
+export { auth, db, googleProvider, messaging };

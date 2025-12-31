@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Mail, ExternalLink, User, Phone, Globe, DollarSign, Send } from 'lucide-react';
+import { X, Download, Mail, User, Phone, Globe, DollarSign, Send } from 'lucide-react';
 
 interface Lead {
     name: string;
@@ -23,7 +23,6 @@ interface LeadsDrawerProps {
 }
 
 const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => {
-    const [emailSent, setEmailSent] = useState(false);
     const [dexterSent, setDexterSent] = useState(false);
 
     // --- ACTIONS ---

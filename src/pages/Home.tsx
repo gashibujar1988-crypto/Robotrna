@@ -15,18 +15,18 @@ const Home: React.FC = () => {
             <RobotsSection />
 
             {/* AI Leveling & Evolution Section - Redesigned */}
-            <section className="py-32 bg-gray-50 overflow-hidden relative">
+            <section className="py-32 bg-gray-50 dark:bg-[#0F1623] overflow-hidden relative transition-colors duration-300">
                 <div className="container mx-auto px-4 relative z-10">
                     <div className="text-center max-w-4xl mx-auto mb-20">
-                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-100 text-purple-700 text-sm font-bold tracking-wide uppercase mb-6">
+                        <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-sm font-bold tracking-wide uppercase mb-6">
                             <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse"></span>
                             Kontinuerligt Lärande
                         </span>
-                        <h2 className="text-4xl md:text-6xl font-black text-gray-900 mb-8 leading-tight">
+                        <h2 className="text-4xl md:text-6xl font-black text-gray-900 dark:text-white mb-8 leading-tight">
                             De blir smartare <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-indigo-600">ju mer du använder dem</span>
                         </h2>
-                        <p className="text-xl text-gray-500 leading-relaxed max-w-2xl mx-auto">
+                        <p className="text-xl text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl mx-auto">
                             Tänk på dem som digitala anställda som aldrig glömmer, aldrig tröttnar och ständigt optimerar sitt eget arbete.
                         </p>
                     </div>

@@ -3,12 +3,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowRight, Activity, Mail, Calendar, Cpu, Bot,
     Settings, Shield, X, Check, TrendingUp, Clock, MessageSquarePlus, Car, Users,
-    Sparkles, Search, Zap
+    Sparkles, Search, Zap, Bell
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api, { robots as robotsApi } from '../api/client';
 import { agents } from '../data/agents';
 import { useAuth } from '../context/AuthContext';
+import { getToken } from 'firebase/messaging';
+import { messaging } from '../firebase';
 
 const GoogleIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24">
@@ -24,19 +26,19 @@ const StatCard = ({ icon: Icon, label, value, color, delay }: any) => (
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.5 }}
-        className="bg-white rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-gray-100/50 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+        className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-gray-100/50 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
     >
         <div className="flex items-start justify-between mb-4">
-            <div className={`p-3 rounded-2xl ${color} bg-opacity-10 text-${color.split('-')[1]}-600 group-hover:scale-110 transition-transform duration-300`}>
+            <div className={`p-3 rounded-2xl ${color} bg-opacity-10 dark:bg-opacity-20 text-${color.split('-')[1]}-600 dark:text-${color.split('-')[1]}-400 group-hover:scale-110 transition-transform duration-300`}>
                 <Icon className="w-6 h-6" />
             </div>
-            <span className="flex items-center text-xs font-bold text-green-500 bg-green-50 px-2 py-1 rounded-full">
+            <span className="flex items-center text-xs font-bold text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full">
                 <TrendingUp className="w-3 h-3 mr-1" /> +12%
             </span>
         </div>
         <div>
             <div className="text-gray-400 text-sm font-medium mb-1 tracking-wide">{label}</div>
-            <div className="text-3xl font-extrabold text-gray-900 tracking-tight">{value}</div>
+            <div className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{value}</div>
         </div>
     </motion.div>
 );
@@ -47,6 +49,28 @@ import TeamGreetingModal from '../components/TeamGreetingModal';
 
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
+
+    // Notification Permission Logic
+    const requestNotificationPermission = async () => {
+        try {
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                const token = await getToken(messaging, { vapidKey: "BEFilSa3kmybsvjtkaywz2uVjpDNKajwMAxLdpau-lP3LFz6hW1ykiWbOJ63z2ptWR0xtBkwrMgZxdhwMZI-Vx0" }).catch(e => {
+                    console.warn("VAPID key missing or invalid.", e);
+                    return null;
+                });
+
+                if (token && user?.id) {
+                    await updateDoc(doc(db, "users", user.id), { fcmToken: token });
+                    alert("Push-notiser aktiverade! Mother kan nu nå dig.");
+                }
+            } else {
+                alert("Du nekade notiser.");
+            }
+        } catch (error) {
+            console.error("Error asking permission", error);
+        }
+    };
     const [robots, setRobots] = useState<any[]>([]);
 
     const [agentXpMap, setAgentXpMap] = useState<Record<string, number>>({});
@@ -211,7 +235,7 @@ const Dashboard: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#F0F2F5] text-gray-900 font-sans relative overflow-x-hidden">
+        <div className="min-h-screen bg-[#F0F2F5] dark:bg-[#0F1623] text-gray-900 dark:text-gray-100 font-sans relative overflow-x-hidden transition-colors duration-300">
             {/* Team Greeting Modal */}
             <TeamGreetingModal
                 isOpen={showGreeting}
@@ -220,12 +244,12 @@ const Dashboard: React.FC = () => {
             />
             {/* Subtle premium background pattern */}
             <div className="absolute inset-0 z-0 opacity-[0.4]">
-                <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-purple-200/30 rounded-full blur-[100px]" />
-                <div className="absolute top-[20%] left-[-10%] w-[500px] h-[500px] bg-blue-200/20 rounded-full blur-[100px]" />
-                <div className="absolute bottom-[-10%] right-[10%] w-[600px] h-[600px] bg-indigo-200/20 rounded-full blur-[100px]" />
+                <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-purple-200/30 dark:bg-purple-900/10 rounded-full blur-[100px]" />
+                <div className="absolute top-[20%] left-[-10%] w-[500px] h-[500px] bg-blue-200/20 dark:bg-blue-900/10 rounded-full blur-[100px]" />
+                <div className="absolute bottom-[-10%] right-[10%] w-[600px] h-[600px] bg-indigo-200/20 dark:bg-indigo-900/10 rounded-full blur-[100px]" />
             </div>
 
-            <div className="pt-24 pb-20 container mx-auto px-6 max-w-[1400px] relative z-10">
+            <div className="pt-24 pb-20 container mx-auto px-4 md:px-6 max-w-[1400px] relative z-10">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-8">
                     <motion.div
@@ -233,10 +257,10 @@ const Dashboard: React.FC = () => {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.6 }}
                     >
-                        <h1 className="text-4xl md:text-5xl font-black mb-3 text-gray-900 tracking-tight flex items-center gap-3">
-                            Kontrollpanel <span className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse mt-2"></span>
+                        <h1 className="text-3xl md:text-5xl font-black mb-3 text-gray-900 dark:text-white tracking-tight flex items-center gap-3 break-words">
+                            Kontrollpanel <span className="w-3 h-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse mt-2 flex-shrink-0"></span>
                         </h1>
-                        <p className="text-gray-500 text-lg font-medium">
+                        <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">
                             Välkommen tillbaka, <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-blue-600 font-bold">{user?.name}</span>.
                             Ditt team arbetar för fullt.
                         </p>
@@ -247,17 +271,17 @@ const Dashboard: React.FC = () => {
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.6 }}
-                        className="bg-white/80 backdrop-blur-xl border border-white/50 px-6 py-4 rounded-3xl shadow-lg hover:shadow-xl transition-all flex items-center gap-5"
+                        className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/50 dark:border-white/10 px-4 md:px-6 py-4 rounded-3xl shadow-lg hover:shadow-xl transition-all flex items-center gap-3 md:gap-5 max-w-full overflow-x-auto"
                     >
                         <div className="relative">
                             <div className={`absolute inset-0 rounded-full blur-md opacity-20 ${user?.isGoogleConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-100 relative z-10">
+                            <div className="w-12 h-12 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center shadow-sm border border-gray-100 dark:border-gray-600 relative z-10">
                                 <GoogleIcon className="w-6 h-6" />
                             </div>
                         </div>
                         <div>
                             <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Anslutning</div>
-                            <div className={`text-sm font-bold flex items-center gap-2 ${user?.isGoogleConnected ? 'text-green-600' : 'text-red-500'}`}>
+                            <div className={`text-sm font-bold flex items-center gap-2 ${user?.isGoogleConnected ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                                 {user?.isGoogleConnected ? (
                                     <>
                                         <Check className="w-4 h-4" /> Ansluten
@@ -269,20 +293,28 @@ const Dashboard: React.FC = () => {
                                 )}
                             </div>
                         </div>
-                        <div className="h-8 w-px bg-gray-200 mx-2"></div>
+                        <div className="h-8 w-px bg-gray-200 dark:bg-gray-700 mx-2"></div>
                         <button
                             onClick={() => fetchDashboardData()}
                             disabled={checking}
-                            className={`p-3 rounded-full bg-gray-50 hover:bg-gray-100 text-gray-500 transition-all active:scale-95 ${checking ? 'animate-spin' : ''}`}
+                            className={`p-3 rounded-full bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-all active:scale-95 ${checking ? 'animate-spin' : ''}`}
                         >
                             <Activity className="w-5 h-5" />
                         </button>
 
                         <div className="h-8 w-px bg-gray-200 mx-2"></div>
 
+                        <button
+                            onClick={requestNotificationPermission}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors mr-2"
+                        >
+                            <Bell className="w-5 h-5" />
+                            <span className="hidden sm:inline">Aktivera Push-notiser från Mother</span>
+                        </button>
+
                         <Link
                             to="/settings"
-                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 text-blue-700 font-bold hover:bg-blue-100 transition-all mr-2"
+                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all mr-2"
                         >
                             <Settings className="w-5 h-5" />
                             <span className="hidden sm:inline">Inställningar</span>
@@ -290,7 +322,7 @@ const Dashboard: React.FC = () => {
 
                         <Link
                             to="/support"
-                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 text-green-700 font-bold hover:bg-green-100 transition-all"
+                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-bold hover:bg-green-100 dark:hover:bg-green-900/50 transition-all"
                         >
                             <MessageSquarePlus className="w-5 h-5" />
                             <span className="hidden sm:inline">Support</span>
@@ -300,7 +332,7 @@ const Dashboard: React.FC = () => {
 
                 {/* --- AGENT CONCIERGE WIDGET --- */}
                 <div className="mb-12 relative z-20">
-                    <div className="bg-white rounded-[2rem] p-2 shadow-xl shadow-purple-500/5 border border-purple-100 flex flex-col md:flex-row items-center gap-2 max-w-4xl mx-auto transform transition-all hover:scale-[1.01]">
+                    <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-2 shadow-xl shadow-purple-500/5 border border-purple-100 dark:border-purple-900/30 flex flex-col md:flex-row items-center gap-2 max-w-4xl mx-auto transform transition-all hover:scale-[1.01]">
                         <div className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white p-4 rounded-[1.5rem] flex-shrink-0">
                             <Sparkles className="w-6 h-6 animate-pulse" />
                         </div>
@@ -309,7 +341,7 @@ const Dashboard: React.FC = () => {
                             onChange={(e) => setConciergeQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleConciergeSearch()}
                             placeholder="Vad behöver du hjälp med? T.ex. 'skapa en bild' eller 'analysera data'..."
-                            className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-lg font-medium placeholder-gray-400 w-full"
+                            className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-lg font-medium placeholder-gray-400 text-gray-900 dark:text-white w-full"
                         />
                         <button
                             onClick={handleConciergeSearch}
@@ -397,16 +429,16 @@ const Dashboard: React.FC = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.1 }}
-                                    className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 group hover:shadow-xl transition-all h-full"
+                                    className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 group hover:shadow-xl transition-all h-full"
                                 >
                                     <div className="flex items-start justify-between mb-4">
-                                        <div className="p-3 rounded-2xl bg-green-50 text-green-600 group-hover:scale-110 transition-transform">
+                                        <div className="p-3 rounded-2xl bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 group-hover:scale-110 transition-transform">
                                             <TrendingUp className="w-6 h-6" />
                                         </div>
-                                        <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-full uppercase">Nyhet</span>
+                                        <span className="text-xs font-bold text-gray-400 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded-full uppercase">Nyhet</span>
                                     </div>
                                     <div className="text-gray-400 text-sm font-medium mb-1">Analytics & ROI</div>
-                                    <div className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+                                    <div className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
                                         Visa Data <ArrowRight className="w-5 h-5" />
                                     </div>
                                 </motion.div>
@@ -420,15 +452,15 @@ const Dashboard: React.FC = () => {
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: 0.3 }}
-                                    className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-3xl p-6 shadow-sm border border-yellow-100 relative overflow-hidden group hover:shadow-md transition-all"
+                                    className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-3xl p-6 shadow-sm border border-yellow-100 dark:border-yellow-900/30 relative overflow-hidden group hover:shadow-md transition-all"
                                 >
                                     <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-yellow-400/20 to-orange-400/20 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110"></div>
                                     <div className="flex justify-between items-start mb-4 relative z-10">
-                                        <div className="p-3 bg-white rounded-2xl text-yellow-600 shadow-sm"><Calendar className="w-6 h-6" /></div>
-                                        <span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Nästa</span>
+                                        <div className="p-3 bg-white dark:bg-gray-800 rounded-2xl text-yellow-600 dark:text-yellow-400 shadow-sm"><Calendar className="w-6 h-6" /></div>
+                                        <span className="bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700 dark:text-yellow-300 text-xs font-bold px-2 py-1 rounded-full uppercase tracking-wide">Nästa</span>
                                     </div>
-                                    <h3 className="font-bold text-gray-900 truncate pr-4 mb-1 text-lg">{nextMeeting.summary}</h3>
-                                    <p className="text-yellow-700 font-medium text-sm flex items-center gap-2 mb-4">
+                                    <h3 className="font-bold text-gray-900 dark:text-white truncate pr-4 mb-1 text-lg">{nextMeeting.summary}</h3>
+                                    <p className="text-yellow-700 dark:text-yellow-400 font-medium text-sm flex items-center gap-2 mb-4">
                                         <Clock className="w-4 h-4" /> {new Date(nextMeeting.start).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                     {nextMeeting.meetLink && (
@@ -445,8 +477,8 @@ const Dashboard: React.FC = () => {
                         {/* Agents Section */}
                         <div>
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                                    <Bot className="w-6 h-6 text-purple-600" />
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                                    <Bot className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                                     <span>Mina Agenter</span>
                                 </h2>
                                 {!robots.length && (
@@ -475,23 +507,23 @@ const Dashboard: React.FC = () => {
                                             >
                                                 <Link
                                                     to={`/robot/${robot.id}`}
-                                                    className="block group bg-white rounded-[2rem] p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] transition-all duration-300 border border-gray-100 relative overflow-hidden"
+                                                    className="block group bg-white dark:bg-gray-800 rounded-[2rem] p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] transition-all duration-300 border border-gray-100 dark:border-gray-700 relative overflow-hidden"
                                                 >
                                                     {/* Card Decoration */}
-                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 rounded-bl-[100px] -mr-8 -mt-8 transition-all group-hover:bg-purple-50/50"></div>
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 dark:bg-gray-700/50 rounded-bl-[100px] -mr-8 -mt-8 transition-all group-hover:bg-purple-50/50 dark:group-hover:bg-purple-900/20"></div>
 
                                                     <div className="flex items-start gap-5 relative z-10">
                                                         <div className="relative">
-                                                            <div className="w-20 h-20 rounded-2xl bg-gray-50 p-1 border border-gray-200 group-hover:border-purple-200 transition-colors bg-white shadow-sm overflow-hidden">
+                                                            <div className="w-20 h-20 rounded-2xl bg-gray-50 dark:bg-gray-700 p-1 border border-gray-200 dark:border-gray-600 group-hover:border-purple-200 dark:group-hover:border-purple-800 transition-colors bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
                                                                 <img src={getAgentImage(robot.name)} alt={robot.name} className="w-full h-full object-cover rounded-xl" />
                                                             </div>
-                                                            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-900 border-[3px] border-white rounded-full flex items-center justify-center text-[10px] text-white font-bold" title={`Level ${rLevel}`}>{rLevel}</div>
+                                                            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-900 dark:bg-black border-[3px] border-white dark:border-gray-800 rounded-full flex items-center justify-center text-[10px] text-white font-bold" title={`Level ${rLevel}`}>{rLevel}</div>
                                                         </div>
 
                                                         <div className="flex-1 pt-1">
                                                             <div className="flex justify-between items-start">
                                                                 <div>
-                                                                    <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-600 transition-colors">{robot.name}</h3>
+                                                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{robot.name}</h3>
                                                                     <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{robot.type}</span>
                                                                 </div>
                                                                 <button
@@ -508,7 +540,7 @@ const Dashboard: React.FC = () => {
                                                                     <span>Level {rLevel}</span>
                                                                     <span>{xpProgress}% XP</span>
                                                                 </div>
-                                                                <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                                                                <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                                                     <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full" style={{ width: `${xpProgress}%` }}></div>
                                                                 </div>
                                                             </div>
@@ -526,9 +558,9 @@ const Dashboard: React.FC = () => {
                                     })}
                                 </div>
                             ) : (
-                                <div className="bg-white rounded-3xl p-12 text-center border border-dashed border-gray-300">
+                                <div className="bg-white dark:bg-gray-800 rounded-3xl p-12 text-center border border-dashed border-gray-300 dark:border-gray-700">
                                     <Bot className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                                    <h3 className="text-lg font-bold text-gray-900">Inga agenter aktiva</h3>
+                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Inga agenter aktiva</h3>
                                     <p className="text-gray-500 mb-6">Starta ditt team för att se dem här.</p>
                                     <button onClick={handleInitRobots} className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all">
                                         Initiera Agenter
@@ -544,9 +576,9 @@ const Dashboard: React.FC = () => {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.5 }}
-                            className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 border border-white sticky top-24"
+                            className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-white dark:border-gray-700 sticky top-24"
                         >
-                            <h2 className="text-xl font-bold text-gray-900 mb-8 flex items-center gap-3">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-8 flex items-center gap-3">
                                 <Activity className="w-5 h-5 text-blue-500" />
                                 Händelselogg
                             </h2>
@@ -572,18 +604,18 @@ const Dashboard: React.FC = () => {
                                             {/* Dot */}
                                             <div className="absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm bg-blue-500"></div>
 
-                                            <div className="p-4 rounded-2xl bg-white border border-gray-100 shadow-sm transition-all hover:bg-gray-50">
+                                            <div className="p-4 rounded-2xl bg-white dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-gray-700">
                                                 <div className="flex justify-between items-start mb-1">
                                                     <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
                                                         {new Date(log.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
-                                                <h4 className="text-sm font-bold text-gray-900 mb-1">{log.message}</h4>
+                                                <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">{log.message}</h4>
                                                 <div className="flex items-center gap-2 mt-2">
                                                     <div className="w-5 h-5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
                                                         {log.agent ? log.agent[0] : 'S'}
                                                     </div>
-                                                    <span className="text-xs text-gray-500 font-medium">{log.agent || 'System'}</span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{log.agent || 'System'}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -597,10 +629,10 @@ const Dashboard: React.FC = () => {
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: 0.6 }}
-                            className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 border border-white mt-8"
+                            className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-white dark:border-gray-700 mt-8"
                         >
                             <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-3">
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                                     <Clock className="w-5 h-5 text-purple-500" />
                                     Tidrapporter
                                 </h2>
@@ -617,13 +649,13 @@ const Dashboard: React.FC = () => {
                                             <div className="text-center py-6 text-gray-400 text-sm">Inga rapporter inlämnade.</div>
                                         );
                                         return savedLogs.slice(0, 3).map((log: any) => (
-                                            <div key={log.id} className="flex items-center gap-4 p-3 rounded-2xl bg-gray-50 border border-gray-100">
-                                                <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center text-gray-500 shadow-sm">
+                                            <div key={log.id} className="flex items-center gap-4 p-3 rounded-2xl bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700">
+                                                <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 shadow-sm">
                                                     <Car className="w-5 h-5" />
                                                 </div>
                                                 <div className="flex-1">
                                                     <div className="flex justify-between">
-                                                        <div className="font-bold text-gray-900 text-sm">{log.date}</div>
+                                                        <div className="font-bold text-gray-900 dark:text-white text-sm">{log.date}</div>
                                                         <div className="text-xs font-bold text-green-600 bg-green-100 px-2 rounded-full">{log.endOdometer - log.startOdometer} km</div>
                                                     </div>
                                                     <div className="text-xs text-gray-400 mt-0.5">{log.startTime} - {log.endTime}</div>
@@ -651,11 +683,11 @@ const Dashboard: React.FC = () => {
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl p-8 relative"
+                            className="bg-white dark:bg-gray-800 rounded-[2rem] w-full max-w-md shadow-2xl p-8 relative"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="flex justify-between items-center mb-8">
-                                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                                     <Shield className="w-7 h-7 text-purple-600" />
                                     Behörigheter
                                 </h3>
@@ -671,13 +703,13 @@ const Dashboard: React.FC = () => {
                                     { key: 'allowGoogle', icon: Mail, label: 'Google & Kalender', sub: 'Läs mail, boka möten', color: 'text-blue-500' },
                                     { key: 'allowBrain', icon: Cpu, label: 'Företagsminne', sub: 'Läs indexerade dokument', color: 'text-yellow-500' }
                                 ].map((perm: any) => (
-                                    <div key={perm.key} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 border border-gray-100 hover:border-gray-200 transition-colors cursor-pointer" onClick={() => setTempPermissions((p: any) => ({ ...p, [perm.key]: !p[perm.key] }))}>
+                                    <div key={perm.key} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors cursor-pointer" onClick={() => setTempPermissions((p: any) => ({ ...p, [perm.key]: !p[perm.key] }))}>
                                         <div className="flex items-center gap-4">
-                                            <div className={`p-3 bg-white rounded-xl shadow-sm border border-gray-100 ${perm.color}`}>
+                                            <div className={`p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${perm.color}`}>
                                                 <perm.icon className="w-5 h-5" />
                                             </div>
                                             <div>
-                                                <div className="font-bold text-gray-900">{perm.label}</div>
+                                                <div className="font-bold text-gray-900 dark:text-white">{perm.label}</div>
                                                 <div className="text-xs text-gray-400">{perm.sub}</div>
                                             </div>
                                         </div>

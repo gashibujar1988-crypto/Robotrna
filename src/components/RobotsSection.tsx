@@ -23,11 +23,11 @@ const iconMap: Record<string, any> = {
 
 const RobotsSection: React.FC = () => {
     return (
-        <section id="robots" className="py-24 relative overflow-hidden bg-white">
+        <section id="robots" className="py-24 relative overflow-hidden bg-white dark:bg-[#0F1623] transition-colors duration-300">
             <div className="container mx-auto px-4 relative z-10">
                 <div className="text-center mb-16">
-                    <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900">Möt Ditt Nya <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">AI-Team</span></h2>
-                    <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+                    <h2 className="text-4xl md:text-5xl font-bold mb-6 text-gray-900 dark:text-white">Möt Ditt Nya <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600">AI-Team</span></h2>
+                    <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto text-lg">
                         Specialiserade AI-agenter med unika personligheter och färdigheter, redo att automatisera din verksamhet.
                     </p>
                 </div>

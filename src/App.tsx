@@ -32,7 +32,7 @@ function App() {
     <Router>
       <AuthProvider>
         <GlobalNotifications />
-        <div className="bg-white min-h-screen text-gray-900 selection:bg-purple-100 selection:text-purple-900">
+        <div className="bg-white dark:bg-gray-900 min-h-screen text-gray-900 dark:text-gray-100 selection:bg-purple-100 selection:text-purple-900 transition-colors duration-300">
           <Routes>
             <Route path="/" element={<><Navbar /><Home /><Footer /></>} />
             <Route
@@ -78,7 +78,9 @@ function App() {
               path="/support"
               element={
                 <PrivateRoute>
+                  <Navbar />
                   <SupportPage />
+                  <Footer />
                 </PrivateRoute>
               }
             />

@@ -4,14 +4,20 @@ import Footer from '../components/Footer';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     User, Globe, Cpu,
-    Sparkles,
+    Sparkles, Moon, Sun,
     LayoutGrid, MessageSquare, Building2, Users, Linkedin, Facebook, Instagram, Twitter
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import ProfileTab from '../components/ProfileTab';
 import { logSystemEvent } from '../utils/logger';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+// ... (BrandIcon, IntegrationsTab, MotherConfigTab, BrandDNAConfig remain unchanged)
+// We will just replace the SettingsPage component logic and import.
+// However, since we are using replace_file_content, we must be careful.
+// Ideally, we would use multi_replace, but let's try to do it cleanly here.
 
 // --- BrandIcon Component ---
 const BrandIcon = ({ logo, fallbackIcon: Icon, color, alt }: any) => {
@@ -188,14 +194,14 @@ const IntegrationsTab = () => {
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-2xl font-bold mb-6">Företagsintegrationer</h2>
+                <h2 className="text-2xl font-bold mb-6 dark:text-white">Företagsintegrationer</h2>
 
                 {/* CORE INTEGRATION: GOOGLE */}
-                <div className="bg-white border text-left border-purple-100 rounded-2xl p-6 shadow-md mb-8 relative overflow-hidden group hover:shadow-lg transition-all">
+                <div className="bg-white dark:bg-gray-800 border text-left border-purple-100 dark:border-purple-900 rounded-2xl p-6 shadow-md mb-8 relative overflow-hidden group hover:shadow-lg transition-all">
                     <div className="absolute top-0 right-0 w-40 h-40 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                     <div className="flex items-center justify-between relative z-10">
                         <div className="flex items-center gap-5">
-                            <div className="w-16 h-16 rounded-2xl bg-white border border-gray-100 flex items-center justify-center p-3 shadow-sm group-hover:scale-105 transition-transform">
+                            <div className="w-16 h-16 rounded-2xl bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 flex items-center justify-center p-3 shadow-sm group-hover:scale-105 transition-transform">
                                 <img
                                     src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg"
                                     alt="Google"
@@ -203,11 +209,11 @@ const IntegrationsTab = () => {
                                 />
                             </div>
                             <div>
-                                <h3 className="font-black text-xl text-gray-900 flex items-center gap-3">
+                                <h3 className="font-black text-xl text-gray-900 dark:text-white flex items-center gap-3">
                                     Google Workspace
                                     <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] rounded-full uppercase tracking-wider font-bold">Recommended</span>
                                 </h3>
-                                <div className="text-sm text-gray-500 max-w-lg mt-1 leading-relaxed">
+                                <div className="text-sm text-gray-500 dark:text-gray-400 max-w-lg mt-1 leading-relaxed">
                                     Ger alla agenter (särskilt Dexter & Soshie) tillgång till Mail, Kalender & Drive.
                                     <span className="text-gray-400 italic"> Nodvändig för full automatisering.</span>
                                 </div>
@@ -227,10 +233,10 @@ const IntegrationsTab = () => {
                 </div>
             </div>
 
-            <h3 className="text-lg font-bold text-gray-700 mb-4 px-1">Alla Verktyg</h3>
+            <h3 className="text-lg font-bold text-gray-700 dark:text-gray-200 mb-4 px-1">Alla Verktyg</h3>
             <div className="grid grid-cols-1 gap-4">
                 {configs.map((config) => (
-                    <div key={config.id} className="bg-white border text-left border-gray-100 rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
+                    <div key={config.id} className="bg-white dark:bg-gray-800 border text-left border-gray-100 dark:border-gray-700 rounded-xl p-5 shadow-sm hover:shadow-md transition-all">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-5">
                                 {/* Use BrandIcon with Fallback */}
@@ -241,8 +247,8 @@ const IntegrationsTab = () => {
                                     alt={config.name}
                                 />
                                 <div>
-                                    <h3 className="font-bold text-gray-900 text-lg">{config.name}</h3>
-                                    <div className="text-xs text-gray-500 font-medium">{config.description}</div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white text-lg">{config.name}</h3>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">{config.description}</div>
                                 </div>
                             </div>
 
@@ -252,7 +258,7 @@ const IntegrationsTab = () => {
                                 </span>
                                 <button
                                     onClick={() => setActiveId(activeId === config.id ? null : config.id)}
-                                    className="px-5 py-2.5 bg-gray-900 hover:bg-black text-white rounded-lg text-sm font-bold transition-colors"
+                                    className="px-5 py-2.5 bg-gray-900 hover:bg-black dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white rounded-lg text-sm font-bold transition-colors"
                                 >
                                     {activeId === config.id ? 'Stäng' : 'Konfigurera'}
                                 </button>
@@ -267,8 +273,8 @@ const IntegrationsTab = () => {
                                     exit={{ height: 0, opacity: 0 }}
                                     className="overflow-hidden"
                                 >
-                                    <div className="pt-6 mt-6 border-t border-gray-100 space-y-4 px-1">
-                                        <div className="flex items-start gap-3 bg-blue-50/50 p-4 rounded-xl text-sm text-blue-800 border border-blue-100">
+                                    <div className="pt-6 mt-6 border-t border-gray-100 dark:border-gray-700 space-y-4 px-1">
+                                        <div className="flex items-start gap-3 bg-blue-50/50 dark:bg-blue-900/20 p-4 rounded-xl text-sm text-blue-800 dark:text-blue-200 border border-blue-100 dark:border-blue-900">
                                             <div className="mt-0.5">ℹ️</div>
                                             <div>
                                                 <strong>Varför behövs detta?</strong><br />
@@ -280,11 +286,11 @@ const IntegrationsTab = () => {
                                         <div className="grid gap-4 max-w-xl">
                                             {config.fields.map((f: any) => (
                                                 <div key={f.key}>
-                                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide ml-1">{f.label}</label>
+                                                    <label className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide ml-1">{f.label}</label>
                                                     <input
                                                         type={f.type}
                                                         placeholder={`Ange din ${f.label}...`}
-                                                        className="w-full mt-1.5 p-3.5 bg-white rounded-xl border border-gray-200 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all shadow-sm"
+                                                        className="w-full mt-1.5 p-3.5 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all shadow-sm text-gray-900 dark:text-white"
                                                     />
                                                 </div>
                                             ))}
@@ -343,29 +349,29 @@ const MotherConfigTab = () => {
     return (
         <div className="space-y-8">
             <div>
-                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2"><Cpu className="text-purple-500" /> Mother Konfiguration</h2>
-                <p className="text-gray-500">Styr hur systemets hjärna ("Mother") ska agera övergripande. Dessa inställningar påverkar alla agenter direkt.</p>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 dark:text-white"><Cpu className="text-purple-500" /> Mother Konfiguration</h2>
+                <p className="text-gray-500 dark:text-gray-400">Styr hur systemets hjärna ("Mother") ska agera övergripande. Dessa inställningar påverkar alla agenter direkt.</p>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-6">
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Företagsnamn (Intern Identitet)</label>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Företagsnamn (Intern Identitet)</label>
                     <input
                         type="text"
                         value={settings.companyName}
                         onChange={(e) => handleChange('companyName', e.target.value)}
-                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white"
                     />
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Tone of Voice</label>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tone of Voice</label>
                     <div className="grid grid-cols-3 gap-3">
                         {['formell', 'professional', 'lekfull'].map((tone) => (
                             <button
                                 key={tone}
                                 onClick={() => handleChange('toneOfVoice', tone)}
-                                className={`py-3 px-4 rounded-xl text-sm font-bold border transition-all ${settings.toneOfVoice === tone ? 'bg-purple-50 text-purple-700 border-purple-200 ring-1 ring-purple-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}
+                                className={`py-3 px-4 rounded-xl text-sm font-bold border transition-all ${settings.toneOfVoice === tone ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 ring-1 ring-purple-500' : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
                             >
                                 {tone.charAt(0).toUpperCase() + tone.slice(1)}
                             </button>
@@ -374,7 +380,7 @@ const MotherConfigTab = () => {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2 flex justify-between">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex justify-between">
                         <span>Kreativitetsnivå (Temperatur)</span>
                         <span className="text-purple-600">{settings.creativity}%</span>
                     </label>
@@ -383,7 +389,7 @@ const MotherConfigTab = () => {
                         min="0" max="100"
                         value={settings.creativity}
                         onChange={(e) => handleChange('creativity', Number(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                        className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
                     />
                 </div>
             </div>
@@ -452,51 +458,51 @@ const BrandDNAConfig = () => {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2"><Sparkles className="text-purple-500" /> Brand DNA</h2>
-                <p className="text-gray-500">Detta är ert företags själ. Alla agenter läser detta för att veta vilka ni är.</p>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 dark:text-white"><Sparkles className="text-purple-500" /> Brand DNA</h2>
+                <p className="text-gray-500 dark:text-gray-400">Detta är ert företags själ. Alla agenter läser detta för att veta vilka ni är.</p>
             </div>
 
-            <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-6">
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Företagsnamn</label>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Företagsnamn</label>
                     <input
                         value={brand.name}
                         onChange={(e) => setBrand({ ...brand, name: e.target.value })}
-                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white"
                         placeholder="T.ex. Acme Corp"
                     />
                 </div>
                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Mission / Vision</label>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mission / Vision</label>
                     <textarea
                         value={brand.mission}
                         onChange={(e) => setBrand({ ...brand, mission: e.target.value })}
-                        className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500 h-24"
+                        className="w-full p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 h-24 dark:text-white"
                         placeholder="Vad vill ni uppnå?"
                     />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Målgrupp</label>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Målgrupp</label>
                         <input
                             value={brand.targetAudience}
                             onChange={(e) => setBrand({ ...brand, targetAudience: e.target.value })}
-                            className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="w-full p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white"
                             placeholder="Vilka säljer ni till?"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">Unik Fördel (USP)</label>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Unik Fördel (USP)</label>
                         <input
                             value={brand.uniqueSellingPoint}
                             onChange={(e) => setBrand({ ...brand, uniqueSellingPoint: e.target.value })}
-                            className="w-full p-3 bg-gray-50 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            className="w-full p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:text-white"
                             placeholder="Varför välja er?"
                         />
                     </div>
                 </div>
 
-                <button onClick={handleSave} className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-all">
+                <button onClick={handleSave} className="w-full py-4 bg-gray-900 dark:bg-white dark:text-black dark:hover:bg-gray-200 text-white font-bold rounded-xl hover:bg-black transition-all">
                     {isSaving ? 'Sparar...' : 'Spara Brand DNA'}
                 </button>
             </div>
@@ -504,16 +510,51 @@ const BrandDNAConfig = () => {
     );
 };
 
-const SettingsPage: React.FC = () => {
-    const { user } = useAuth();
-    const [activeTab, setActiveTab] = useState<'profile' | 'mother' | 'integrations' | 'brand'>('integrations');
+// --- Theme Settings Component ---
+const ThemeSettingsTab = () => {
+    const { theme, toggleTheme } = useTheme();
 
     return (
-        <div className="bg-gray-50/50 min-h-screen font-sans">
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 dark:text-white"><Moon className="text-purple-500" /> Utseende</h2>
+                <p className="text-gray-500 dark:text-gray-400">Anpassa Robotrna efter din smak.</p>
+            </div>
+
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className={`p-3 rounded-full ${theme === 'dark' ? 'bg-indigo-900 text-white' : 'bg-yellow-100 text-yellow-600'}`}>
+                            {theme === 'dark' ? <Moon size={24} /> : <Sun size={24} />}
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold dark:text-white">Dark Mode</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Växla mellan ljust och mörkt läge</p>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={toggleTheme}
+                        className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 ${theme === 'dark' ? 'bg-purple-600' : 'bg-gray-200'}`}
+                    >
+                        <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${theme === 'dark' ? 'translate-x-7' : 'translate-x-1'}`} />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const SettingsPage: React.FC = () => {
+    const { user } = useAuth();
+    const [activeTab, setActiveTab] = useState<'profile' | 'mother' | 'integrations' | 'brand' | 'theme'>('integrations');
+
+    return (
+        <div className="bg-gray-50/50 dark:bg-gray-900 min-h-screen font-sans transition-colors duration-300">
             <Navbar />
 
             <div className="container mx-auto px-4 py-32 max-w-6xl">
-                <h1 className="text-4xl font-black text-gray-900 mb-8 tracking-tight">Systeminställningar</h1>
+                <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-8 tracking-tight">Systeminställningar</h1>
 
                 <div className="flex flex-col lg:flex-row gap-8">
                     {/* Sidebar Navigation */}
@@ -523,20 +564,25 @@ const SettingsPage: React.FC = () => {
                             { id: 'mother', label: 'Mother AI Konfig', icon: Cpu },
                             { id: 'brand', label: 'Brand DNA', icon: Sparkles },
                             { id: 'integrations', label: 'Integrationer', icon: Globe },
+                            { id: 'theme', label: 'Utseende', icon: Moon },
                         ].map((tab: any) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`w-full text-left p-4 rounded-xl font-bold flex items-center gap-3 transition-all ${activeTab === tab.id ? 'bg-white text-purple-700 shadow-lg shadow-purple-900/5 ring-1 ring-purple-100' : 'text-gray-500 hover:bg-white/50 hover:text-gray-700'}`}
+                                className={`w-full text-left p-4 rounded-xl font-bold flex items-center gap-3 transition-all 
+                                    ${activeTab === tab.id
+                                        ? 'bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 shadow-lg shadow-purple-900/5 ring-1 ring-purple-100 dark:ring-purple-900'
+                                        : 'text-gray-500 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-800/50 hover:text-gray-700 dark:hover:text-gray-200'
+                                    }`}
                             >
-                                <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-purple-600' : 'text-gray-400'}`} />
+                                <tab.icon className={`w-5 h-5 ${activeTab === tab.id ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} />
                                 {tab.label}
                             </button>
                         ))}
 
-                        <div className="pt-8 mt-8 border-t border-gray-200">
+                        <div className="pt-8 mt-8 border-t border-gray-200 dark:border-gray-800">
                             <div className="px-4 text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Systeminfo</div>
-                            <div className="px-4 text-sm text-gray-500 font-mono">v.1.0.5 Release</div>
+                            <div className="px-4 text-sm text-gray-500 dark:text-gray-500 font-mono">v.1.0.5 Release</div>
                         </div>
                     </div>
 
@@ -552,6 +598,7 @@ const SettingsPage: React.FC = () => {
                             {activeTab === 'mother' && <MotherConfigTab />}
                             {activeTab === 'integrations' && <IntegrationsTab />}
                             {activeTab === 'brand' && <BrandDNAConfig />}
+                            {activeTab === 'theme' && <ThemeSettingsTab />}
                         </motion.div>
                     </div>
                 </div>

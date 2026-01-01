@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onAgentTaskActivated = exports.getMotherInsights = exports.onHunterConfirmation = void 0;
+exports.onComplexTaskRequest = exports.onAgentTaskActivated = exports.getMotherInsights = exports.onHunterConfirmation = void 0;
 const dotenv = require("dotenv");
 dotenv.config();
 const functions = require("firebase-functions");
@@ -268,5 +268,75 @@ exports.onAgentTaskActivated = functions.firestore
     // Spara resultatet i Minnesbanken och skicka push-notis
     await saveToTotalMinnesbank(userId, agentName, result);
     await sendPushToUser(userId, `${agentName} har slutfört sitt uppdrag!`);
+});
+// --- COMPLEX TASK ORCHESTRATION (THE HIGH COUNCIL) ---
+async function runAllAgents(userTask) {
+    // I en full implementation skulle detta parallellköra relevanta agenter.
+    // Här simulerar vi att "Generic", "Soshie" och "Ledger" gör varsitt utkast.
+    const agents = ["Generic", "Soshie", "Ledger"];
+    const drafts = {};
+    for (const agent of agents) {
+        drafts[agent] = await runGenericAgentTask(agent, { task: userTask }, { context: "Initial Draft" });
+    }
+    return drafts;
+}
+const highCouncil = {
+    evaluate: async (drafts) => {
+        try {
+            const completion = await openai.chat.completions.create({
+                messages: [
+                    { role: "system", content: "You are the High Council, a supreme AI judge. Evaluate these drafts. If they are perfect, set isPerfect: true. If not, provide specific instructions for refinement." },
+                    { role: "user", content: `Drafts: ${JSON.stringify(drafts)}` }
+                ],
+                model: "gpt-4-turbo",
+                response_format: { type: "json_object" }
+            });
+            return JSON.parse(completion.choices[0].message.content || '{"isPerfect": false, "instructions": "Refine everything."}');
+        }
+        catch (e) {
+            console.error("High Council Error:", e);
+            return { isPerfect: false, instructions: "System error. Try again." };
+        }
+    }
+};
+const agents = {
+    refine: async (drafts, instructions) => {
+        const refinedDrafts = {};
+        for (const agentKey of Object.keys(drafts)) {
+            // Varje agent försöker förbättra sitt bidrag baserat på feedback
+            const params = { originalDraft: drafts[agentKey], feedback: instructions };
+            refinedDrafts[agentKey] = await runGenericAgentTask(agentKey, params, { context: "Refinement Phase" });
+        }
+        return refinedDrafts;
+    }
+};
+async function solveComplexTask(userId, userTask) {
+    functions.logger.info(`STARTING COMPLEX TASK for ${userId}: ${userTask}`);
+    // 1. Agenterna genererar första utkastet
+    let drafts = await runAllAgents(userTask);
+    // 2. Diskussionen startar (Max 3 rundor för att nå perfektion)
+    for (let i = 0; i < 3; i++) {
+        functions.logger.info(`High Council Round ${i + 1}...`);
+        const feedback = await highCouncil.evaluate(drafts);
+        if (feedback.isPerfect) {
+            functions.logger.info("High Council is satisfied.");
+            break;
+        }
+        // Agenterna får feedback och försöker igen
+        functions.logger.info(`Refining based on feedback: ${feedback.instructions}`);
+        drafts = await agents.refine(drafts, feedback.instructions);
+    }
+    return drafts;
+}
+exports.onComplexTaskRequest = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+    const { task } = data;
+    const userId = context.auth.uid;
+    const result = await solveComplexTask(userId, task);
+    // Spara slutresultatet
+    await saveToTotalMinnesbank(userId, "The High Council", result);
+    return { status: "SUCCESS", result };
 });
 //# sourceMappingURL=index.js.map

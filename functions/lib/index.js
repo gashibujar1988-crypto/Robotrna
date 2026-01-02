@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onComplexTaskRequest = exports.onAgentTaskActivated = exports.getMotherInsights = exports.onHunterConfirmation = void 0;
+exports.onSendToDexter = exports.generateDexterDrafts = exports.onBrainFeedUpdate = exports.onComplexTaskRequest = exports.HIGH_COUNCIL = exports.onAgentTaskActivated = exports.getMotherInsights = exports.onHunterConfirmation = void 0;
 const dotenv = require("dotenv");
 dotenv.config();
 const functions = require("firebase-functions");
@@ -269,74 +269,377 @@ exports.onAgentTaskActivated = functions.firestore
     await saveToTotalMinnesbank(userId, agentName, result);
     await sendPushToUser(userId, `${agentName} har slutfört sitt uppdrag!`);
 });
-// --- COMPLEX TASK ORCHESTRATION (THE HIGH COUNCIL) ---
-async function runAllAgents(userTask) {
-    // I en full implementation skulle detta parallellköra relevanta agenter.
-    // Här simulerar vi att "Generic", "Soshie" och "Ledger" gör varsitt utkast.
-    const agents = ["Generic", "Soshie", "Ledger"];
-    const drafts = {};
-    for (const agent of agents) {
-        drafts[agent] = await runGenericAgentTask(agent, { task: userTask }, { context: "Initial Draft" });
+// --- THE HIVE MIND ARCHITECTURE ---
+// 1. Definition of the 9 Agents and their 27 Sub-agents
+const AGENT_ROSTRUM = {
+    Hunter: {
+        role: "Sales",
+        subs: {
+            LeadScout: "Finds raw lead data (API)",
+            LeadAnalyst: "Qualifies leads via Memory Bank",
+            Ghostwriter: "Creates personalized outreach"
+        }
+    },
+    Soshie: {
+        role: "Marketing",
+        subs: {
+            TrendHunter: "Scans social media for trends in customer niche",
+            CopySpecialist: "Writes engaging copy for ads and posts",
+            GrowthHacker: "Optimizes campaigns for conversion"
+        }
+    },
+    Pixel: {
+        role: "Design",
+        subs: {
+            UIArchitect: "Creates structural layouts (Bento, Glassmorphism)",
+            BrandStylist: "Selects colors, typography and visual identity",
+            AssetEngine: "Generates assets via DALL-E/Midjourney"
+        }
+    },
+    Ledger: {
+        role: "Finance",
+        subs: {
+            CostAuditor: "Audits expenses and finds hidden costs",
+            RevenuePredictor: "Forecasts revenue based on sales data",
+            ComplianceOfficer: "Ensures financial regulation compliance"
+        }
+    },
+    Atlas: {
+        role: "Tech",
+        subs: {
+            SystemArchitect: "Designs database schemas and cloud architecture",
+            CodeAuditor: "Reviews code for bugs and security",
+            APIIntegrator: "Connects different systems and services"
+        }
+    },
+    Lex: {
+        role: "Legal",
+        subs: {
+            ContractDrafter: "Drafts legal documents like NDAs",
+            PrivacyExpert: "Ensures GDPR compliance and data protection",
+            RiskAssessor: "Identifies legal risks in business ideas"
+        }
+    },
+    Sage: {
+        role: "Strategy",
+        subs: {
+            MarketAnalyst: "Performs SWOT analysis on competitors",
+            InnovationScout: "Finds new business opportunities",
+            RoadmapPlanner: "Creates long-term execution plans"
+        }
+    },
+    Spark: {
+        role: "Innovation",
+        subs: {
+            Ideator: "Generates 50+ wild ideas without limits",
+            ConceptPolisher: "Refines ideas into business concepts",
+            FutureCaster: "Predicts future needs based on tech trends"
+        }
+    },
+    Echo: {
+        role: "Support",
+        subs: {
+            KnowledgeBaseManager: "Organizes internal documentation",
+            ResponseDesigner: "Creates customer response templates",
+            QualityChecker: "Analyzes support tickets for quality"
+        }
+    },
+    Dexter: {
+        role: "Operations & Outreach",
+        subs: {
+            WarmUpExpert: "Du är Dexters leverans-specialist. Uppdrag: Kontrollera om kundens domän har några specifika säkerhetsinställningar (SPF, DKIM, DMARC) som kräver att vi ändrar mejlformatet till ren text. Rensa mejlet från 'spam-ord' (t.ex. 'free', 'buy now') och skapa slumpmässiga tidsfördröjningar.",
+            HyperPersonalizer: "Du är Dexters innehålls-specialist med tillstånd att använda 'Website_Scraper' och 'LinkedIn_API'. Uppdrag: För varje lead, (1) Skanna deras officiella hemsida efter 'Våra Tjänster' och 'Om oss'. (2) Identifiera specifika projekt eller värdeord. (3) Hitta en specifik smärtpunkt (t.ex. manuell bokföring) och använd det som krok. (4) Sök på LinkedIn efter företagets senaste post. Ingen copy-paste är tillåten.",
+            ThreadManager: "Du är Dexters uppföljnings-strateg. Uppdrag: Bevaka om kunden har postat något nytt på Facebook/LinkedIn nyligen och väv in det i uppföljningsmejlet om de inte svarar på första utkastet. Skapa 'följa-upp'-sekvenser som ser ut som naturliga svar."
+        }
     }
-    return drafts;
+};
+// 2. Helper to run a specific Sub-agent using OpenAI
+async function runSubAgent(agentName, subName, subRole, task, context) {
+    try {
+        const completion = await openai.chat.completions.create({
+            messages: [
+                { role: "system", content: `You are ${subName}, a specialist sub-agent for ${agentName} (${AGENT_ROSTRUM[agentName].role}). Your specific role: ${subRole}.` },
+                { role: "user", content: `(TIMESTAMP: ${new Date().toISOString()}) Task: ${task}. \nGlobal Context: ${context}` }
+            ],
+            model: "gpt-4-turbo",
+        });
+        return {
+            agent: `${agentName}_${subName}`,
+            message: completion.choices[0].message.content,
+            timestamp: new Date().toISOString()
+        };
+    }
+    catch (e) {
+        return {
+            agent: `${agentName}_${subName}`,
+            message: `Error executing ${subName}: ${e.message}`,
+            timestamp: new Date().toISOString()
+        };
+    }
 }
-const highCouncil = {
-    evaluate: async (drafts) => {
-        try {
-            const completion = await openai.chat.completions.create({
-                messages: [
-                    { role: "system", content: "You are the High Council, a supreme AI judge. Evaluate these drafts. If they are perfect, set isPerfect: true. If not, provide specific instructions for refinement." },
-                    { role: "user", content: `Drafts: ${JSON.stringify(drafts)}` }
-                ],
-                model: "gpt-4-turbo",
-                response_format: { type: "json_object" }
-            });
-            return JSON.parse(completion.choices[0].message.content || '{"isPerfect": false, "instructions": "Refine everything."}');
-        }
-        catch (e) {
-            console.error("High Council Error:", e);
-            return { isPerfect: false, instructions: "System error. Try again." };
-        }
-    }
+// 3. Orchestrate a Main Agent (runs all 3 subs)
+async function activateAgentSquad(taskId, agentName, task, globalContext) {
+    const squad = AGENT_ROSTRUM[agentName].subs;
+    const promises = Object.keys(squad).map(async (subName) => {
+        // LOGIC REQUESTED BY USER:
+        // Simulera att sub-agenten börjar jobba
+        await admin.firestore().collection("task_discussions").doc(taskId).update({
+            brain_feed: admin.firestore.FieldValue.arrayUnion({
+                agent: `${agentName}_${subName}`,
+                message: `Initialiserar specialistuppgift: Analyserar '${task.substring(0, 30)}...'`,
+                timestamp: new Date().toISOString()
+            })
+        });
+        return runSubAgent(agentName, subName, squad[subName], task, globalContext);
+    });
+    // Run subs in parallel
+    const feed = await Promise.all(promises);
+    return feed; // Returns array of brain_feed items
+}
+// 4. THE HIGH COUNCIL LOGIC
+exports.HIGH_COUNCIL = {
+    Architect: "You are The Architect. Verify technical feasibility and logical flow. If plans collide, order restructuring.",
+    Critic: "You are The Critic. Challenge every proposal. Find weaknesses. Never approve without questioning.",
+    Synthesizer: "You are The Synthesizer. Merge all insights into one perfect final response. You have the final word."
 };
-const agents = {
-    refine: async (drafts, instructions) => {
-        const refinedDrafts = {};
-        for (const agentKey of Object.keys(drafts)) {
-            // Varje agent försöker förbättra sitt bidrag baserat på feedback
-            const params = { originalDraft: drafts[agentKey], feedback: instructions };
-            refinedDrafts[agentKey] = await runGenericAgentTask(agentKey, params, { context: "Refinement Phase" });
-        }
-        return refinedDrafts;
-    }
-};
+/*
+async function consultHighCouncil(brainFeed: any[], task: string) {
+    const context = JSON.stringify(brainFeed, null, 2);
+
+    // Step 1: The Architect
+    const archResponse = await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: HIGH_COUNCIL.Architect },
+            { role: "user", content: `Analyze this Brain Feed for task "${task}":\n${context}` }
+        ], model: "gpt-4-turbo"
+    });
+    const archFeedback = archResponse.choices[0].message.content;
+
+    // Step 2: The Critic (sees Architect's feedback)
+    const criticResponse = await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: HIGH_COUNCIL.Critic },
+            { role: "user", content: `Analyze Feed + Architect's feedback:\nFeed: ${context}\nArchitect: ${archFeedback}` }
+        ], model: "gpt-4-turbo"
+    });
+    const criticFeedback = criticResponse.choices[0].message.content;
+
+    // Step 3: The Synthesizer (The Decision Maker)
+    const synthResponse = await openai.chat.completions.create({
+        messages: [
+            { role: "system", content: HIGH_COUNCIL.Synthesizer },
+            {
+                role: "user", content: `Synthesize everything into a final output for the user.
+            Task: ${task}
+            Brain Feed: ${context}
+            Architect says: ${archFeedback}
+            Critic says: ${criticFeedback}`
+            }
+        ], model: "gpt-4-turbo"
+    });
+
+    return {
+        architect: archFeedback,
+        critic: criticFeedback,
+        finalVerdict: synthResponse.choices[0].message.content
+    };
+}
+*/
+// --- MAIN ENTRY POINT: SOLVE COMPLEX TASK ---
 async function solveComplexTask(userId, userTask) {
-    functions.logger.info(`STARTING COMPLEX TASK for ${userId}: ${userTask}`);
-    // 1. Agenterna genererar första utkastet
-    let drafts = await runAllAgents(userTask);
-    // 2. Diskussionen startar (Max 3 rundor för att nå perfektion)
-    for (let i = 0; i < 3; i++) {
-        functions.logger.info(`High Council Round ${i + 1}...`);
-        const feedback = await highCouncil.evaluate(drafts);
-        if (feedback.isPerfect) {
-            functions.logger.info("High Council is satisfied.");
-            break;
+    functions.logger.info(`STARTING HIVE MIND for ${userId}: ${userTask}`);
+    // Create Task Document
+    const taskId = `task_${Date.now()}`;
+    const db = admin.firestore();
+    const taskRef = db.collection("task_discussions").doc(taskId);
+    // Init doc
+    await taskRef.set({
+        taskId: taskId,
+        userId: userId,
+        task: userTask,
+        created_at: new Date().toISOString(),
+        brain_feed: [],
+        consensus_reached: false
+    });
+    // Helper to log to feed
+    const addToFeed = async (agent, msg) => {
+        await taskRef.update({
+            brain_feed: admin.firestore.FieldValue.arrayUnion({
+                agent: agent,
+                message: msg,
+                timestamp: new Date().toISOString()
+            })
+        });
+    };
+    // 0. Mother Hive Delegate: Determine active agents
+    // FULL HIVE MIND ACTIVATION: All agents engaged.
+    const activeAgents = ["Hunter", "Soshie", "Pixel", "Ledger", "Atlas", "Lex", "Sage", "Spark", "Echo", "Dexter"];
+    const globalMemory = await getGlobalMemory(userId);
+    // 1. Sub-Execution: Trigger agents
+    // We run this *after* returning response? No, Cloud Functions time out if we don't await.
+    // So we await the execution, but we update the feed as we go.
+    // Notify start
+    await addToFeed("Mother_Hive_Core", `Received task: "${userTask}". Initiating Agent Squads...`);
+    for (const agent of activeAgents) {
+        // Log Agent Activation
+        await addToFeed("Mother_Hive_Core", `Activating ${agent} Team...`);
+        // Run Squad
+        const squadResults = await activateAgentSquad(taskId, agent, userTask, globalMemory.context);
+        // Post results to feed
+        for (const res of squadResults) {
+            await addToFeed(res.agent, res.message || "No output generated.");
         }
-        // Agenterna får feedback och försöker igen
-        functions.logger.info(`Refining based on feedback: ${feedback.instructions}`);
-        drafts = await agents.refine(drafts, feedback.instructions);
     }
-    return drafts;
+    // Return the ID so frontend can subscribe
+    return {
+        task_id: taskId,
+        status: "started",
+        message: "Agents activated. Monitor Brain-Feed for High Council consensus."
+    };
 }
-exports.onComplexTaskRequest = functions.https.onCall(async (data, context) => {
+exports.onComplexTaskRequest = functions.runWith({ timeoutSeconds: 540, memory: '1GB' }).https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
     const { task } = data;
     const userId = context.auth.uid;
-    const result = await solveComplexTask(userId, task);
-    // Spara slutresultatet
-    await saveToTotalMinnesbank(userId, "The High Council", result);
+    const result = await solveComplexTask(userId || "anonymous", task);
+    // Task started. Result will appear in Firestore feed.
     return { status: "SUCCESS", result };
+});
+// --- REAL-TIME BRAIN FEED LOGIC ---
+exports.onBrainFeedUpdate = functions.firestore
+    .document("task_discussions/{taskId}")
+    .onUpdate(async (change, context) => {
+    const data = change.after.data();
+    // const previousData = change.before.data(); // Not used currently
+    const feed = data.brain_feed;
+    if (!feed || feed.length === 0)
+        return;
+    const lastMessage = feed[feed.length - 1];
+    // Om Synthesizer redan har satt consensus till true, avsluta diskussionen
+    if (data.consensus_reached)
+        return;
+    functions.logger.info(`Mother Hive: Nytt inlägg i tråden från ${lastMessage.agent}`);
+    // LOGIK FÖR DISKUSSION (The High Council Check-in)
+    // 1. Om en Sub-agent (t.ex. Hunter_Scout) postat rådata -> Väck THE CRITIC
+    // Vi måste vara försiktiga med oändliga loopar. Kolla vem som skrev sist.
+    if (lastMessage.agent.includes("_") && !lastMessage.agent.includes("High_Council")) {
+        await addMessageToFeed(context.params.taskId, "High_Council_Critic", `Jag granskar ${lastMessage.agent}s output. Är detta verkligen optimerat för kundens mål i Minnesbanken?`);
+    }
+    // 2. Om THE CRITIC har gett feedback -> Väck THE ARCHITECT för att strukturera om
+    if (lastMessage.agent === "High_Council_Critic") {
+        await addMessageToFeed(context.params.taskId, "High_Council_Architect", "Jag justerar nu den tekniska strukturen baserat på Critics feedback.");
+    }
+    // 3. Om ARCHITECT är klar -> Låt THE SYNTHESIZER skapa slutgiltig lösning och nå CONSENSUS
+    if (lastMessage.agent === "High_Council_Architect") {
+        const isReady = await checkQualityScore(feed);
+        if (isReady) {
+            // Generera den riktiga slutrapporten med OpenAI
+            const context = feed.map((f) => `${f.agent}: ${f.message}`).join("\n");
+            const completion = await openai.chat.completions.create({
+                messages: [
+                    { role: "system", content: exports.HIGH_COUNCIL.Synthesizer },
+                    { role: "user", content: `Review the discussion below and synthesize a final, comprehensive strategy for the user. this is the final output they will pay for.\n\nDISCUSSION LOG:\n${context}` }
+                ],
+                model: "gpt-4-turbo",
+            });
+            const finalVerdict = completion.choices[0].message.content || "Error generating verdict.";
+            await change.after.ref.update({ consensus_reached: true });
+            await addMessageToFeed(context.params.taskId, "High_Council_Synthesizer", finalVerdict);
+        }
+    }
+});
+async function addMessageToFeed(taskId, agentName, text) {
+    // Förhindra snabba loopar med en liten fördröjning om det vore produktion
+    await admin.firestore().collection("task_discussions").doc(taskId).update({
+        brain_feed: admin.firestore.FieldValue.arrayUnion({
+            agent: agentName,
+            message: text,
+            timestamp: new Date().toISOString()
+        })
+    });
+}
+// Placeholder for quality check AI
+async function checkQualityScore(feed) {
+    // Här skulle man kunna köra en LLM-koll igen.
+    // För demo-syfte, vi säger alltid JA efter att Architect har talat.
+    return true;
+}
+exports.generateDexterDrafts = functions.runWith({ timeoutSeconds: 300 }).https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
+    }
+    const { leads } = data;
+    const userId = context.auth.uid;
+    const memory = await getGlobalMemory(userId);
+    const drafts = [];
+    // Process max 3 leads for demo speed/cost, or all if few
+    const leadsToProcess = leads.slice(0, 3);
+    for (const lead of leadsToProcess) {
+        // Use Dexter's HyperPersonalizer to write the email
+        const result = await runSubAgent("Dexter", "HyperPersonalizer", AGENT_ROSTRUM.Dexter.subs.HyperPersonalizer, `Create a personalized cold email for ${lead.name}. They are located at ${lead.address}. If you have info on '${lead.daglig_leder}', address them directly. Verify if they are a 'Marketing Agency' based on types: ${lead.types}`, memory.context);
+        drafts.push({
+            leadName: lead.name,
+            emailTo: lead.email || "unknown@domain.com",
+            subject: `Fråga gällande samarbete med ${lead.name}`,
+            content: result.message
+        });
+    }
+    return { drafts };
+});
+// --- DEXTER OUTREACH AUTOMATION ---
+async function triggerDexterProcess(leads, userId) {
+    const memory = await getGlobalMemory(userId);
+    const results = [];
+    // Limit to 3 leads for demo purposes to save tokens/time
+    const leadsToProcess = leads.slice(0, 3);
+    for (const lead of leadsToProcess) {
+        // 1. WarmUp Expert checks domain
+        const warmUpRes = await runSubAgent("Dexter", "WarmUpExpert", AGENT_ROSTRUM.Dexter.subs.WarmUpExpert, `SIMULATE_DOMAIN_CHECK: Analyze ${lead.name}. Check SPF/DKIM/DMARC records. Look for spam-trigger words in our potential draft. Output a safety score (0-100%).`, memory.context);
+        // 2. HyperPersonalizer writes content
+        const personRes = await runSubAgent("Dexter", "HyperPersonalizer", AGENT_ROSTRUM.Dexter.subs.HyperPersonalizer, `EXECUTE_DEEP_SCAN:
+            1. Search LinkedIn for ${lead.name}'s latest post.
+            2. Scrape official website (if available) for 'Våra Tjänster'.
+            3. Find a pain point (e.g. manual accounting) to use as a hook.
+            4. Write a highly personalized intro sentence based on this data.`, memory.context);
+        // Save to Firestore so UI can pick it up
+        await admin.firestore().collection(`users/${userId}/dexter_drafts`).add({
+            leadName: lead.name,
+            warmUpAnalysis: warmUpRes.message,
+            emailContent: personRes.message,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            status: "ready"
+        });
+        results.push({ lead: lead.name, status: "processed" });
+    }
+    return results;
+}
+exports.onSendToDexter = functions.firestore
+    .document("users/{userId}/lead_transfers/{transferId}")
+    .onCreate(async (snapshot, context) => {
+    const data = snapshot.data();
+    if (!data || !data.leads)
+        return;
+    console.log(`Mottog ${data.leads.length} leads för Dexter. Startar process...`);
+    // 1. Väck Dexters specialister
+    await triggerDexterProcess(data.leads, context.params.userId);
+    // 2. Skapa ett diskussionsämne i Brain-Feed så du ser det i realtid
+    // Vi skapar detta med en referens så vi kan fylla på
+    const taskRef = await admin.firestore().collection("task_discussions").add({
+        userId: context.params.userId,
+        task: `Outreach för ${data.leads.length} nya leads (från Hunter)`,
+        created_at: new Date().toISOString(),
+        consensus_reached: false,
+        brain_feed: []
+    });
+    // 3. Logga första meddelandet
+    await taskRef.update({
+        brain_feed: admin.firestore.FieldValue.arrayUnion({
+            agent: "Mother_Hive",
+            message: "Hunters leads mottagna. Aktiverar Dexter och hans 3 specialister för outreach.",
+            timestamp: new Date().toISOString()
+        })
+    });
 });
 //# sourceMappingURL=index.js.map

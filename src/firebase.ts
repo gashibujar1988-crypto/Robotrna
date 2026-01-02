@@ -25,4 +25,8 @@ googleProvider.addScope('https://www.googleapis.com/auth/contacts.readonly');
 googleProvider.addScope('https://www.googleapis.com/auth/calendar.events');
 googleProvider.addScope('https://www.googleapis.com/auth/gmail.readonly');
 
-export { auth, db, googleProvider, messaging };
+import { getFunctions } from "firebase/functions";
+
+const functions = getFunctions(app);
+
+export { auth, db, googleProvider, messaging, functions };

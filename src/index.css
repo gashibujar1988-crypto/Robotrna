@@ -152,3 +152,59 @@ h6 {
 .preserve-3d {
   transform-style: preserve-3d;
 }
+
+/* Container för hela agent-trädet */
+.agent-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+/* Den vertikala kabeln från huvudagenten */
+.agent-tree::after {
+  content: '';
+  position: absolute;
+  top: 100px;
+  /* Justera efter huvudkortets höjd */
+  width: 2px;
+  height: 60px;
+  background: linear-gradient(to bottom, #8b5cf6, transparent);
+  z-index: 0;
+}
+
+/* Sub-agenternas rad */
+.sub-agent-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 40px;
+  position: relative;
+  z-index: 10;
+}
+
+/* De små sub-agent-korten */
+.sub-card {
+  width: 70px;
+  height: 70px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  /* Ljusare default för light mode */
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  cursor: help;
+  position: relative;
+}
+
+html.dark .sub-card {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.sub-card:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 1);
+  transform: translateY(-2px);
+}

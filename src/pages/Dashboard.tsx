@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-    ArrowRight, Activity, Mail, Calendar, Cpu, Bot,
-    Settings, Shield, X, Check, TrendingUp, Clock, MessageSquarePlus, Car, Users,
+    ArrowRight, Activity, Calendar, Bot,
+    Settings, X, Check, TrendingUp, Clock, MessageSquarePlus, Car, Users,
     Sparkles, Search, Zap, Bell
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import api, { robots as robotsApi } from '../api/client';
+import api from '../api/client';
 import { agents } from '../data/agents';
 import { useAuth } from '../context/AuthContext';
 import { getToken } from 'firebase/messaging';
 import { messaging } from '../firebase';
+import RobotWorkspace from './RobotWorkspace';
 
 const GoogleIcon = ({ className }: { className?: string }) => (
     <svg className={className} viewBox="0 0 24 24">
@@ -43,12 +44,15 @@ const StatCard = ({ icon: Icon, label, value, color, delay }: any) => (
     </motion.div>
 );
 
-import { db } from '../firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db, functions } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { doc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import TeamGreetingModal from '../components/TeamGreetingModal';
+import BrainFeed from '../components/BrainFeed';
 
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
+    const commandInputRef = React.useRef<HTMLInputElement>(null); // Ref for focus
 
     // Notification Permission Logic
     const requestNotificationPermission = async () => {
@@ -71,16 +75,11 @@ const Dashboard: React.FC = () => {
             console.error("Error asking permission", error);
         }
     };
-    const [robots, setRobots] = useState<any[]>([]);
-
-    const [agentXpMap, setAgentXpMap] = useState<Record<string, number>>({});
 
     const [nextMeeting, setNextMeeting] = useState<any>(null);
     const [googleStats, setGoogleStats] = useState<{ unreadEmails: number | null, upcomingEvents: number | null }>({ unreadEmails: null, upcomingEvents: null });
+    const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
     const [checking, setChecking] = useState(false);
-    const [editingRobot, setEditingRobot] = useState<any>(null);
-
-    const [tempPermissions, setTempPermissions] = useState({ allowGoogle: true, allowBrain: true });
 
     // --- CONCIERGE STATE ---
     const [conciergeQuery, setConciergeQuery] = useState('');
@@ -88,6 +87,39 @@ const Dashboard: React.FC = () => {
 
     // --- ONBOARDING / GREETING STATE ---
     const [showGreeting, setShowGreeting] = useState(false);
+
+    // --- ACTIVE MISSION STATE ---
+    const [activeMissionId, setActiveMissionId] = useState<string | null>(null);
+
+    // FIX: Scroll & Focus function
+    const scrollToCommandCenter = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setTimeout(() => {
+            if (commandInputRef.current) {
+                commandInputRef.current.focus();
+            }
+        }, 600);
+    };
+
+    useEffect(() => {
+        // Listen for the most recent ACTIVE discussion (not completed ones)
+        try {
+            const q = query(
+                collection(db, "task_discussions"),
+                where("consensus_reached", "==", false),
+                orderBy("created_at", "desc"),
+                limit(1)
+            );
+
+            const unsub = onSnapshot(q, (snapshot) => {
+                if (!snapshot.empty) {
+                    const latest = snapshot.docs[0];
+                    setActiveMissionId(latest.id);
+                }
+            });
+            return () => unsub();
+        } catch (e) { console.log("Firestore query error", e); }
+    }, []);
 
     useEffect(() => {
         const checkOnboarding = async () => {
@@ -118,9 +150,7 @@ const Dashboard: React.FC = () => {
                 await updateDoc(userRef, {
                     hasCompletedOnboarding: true
                 });
-            } catch (e) {
-                console.error("Failed to update onboarding status", e);
-            }
+            } catch (e) { console.error(e); }
         }
     };
 
@@ -169,37 +199,10 @@ const Dashboard: React.FC = () => {
         return agents.find(a => a.name === name)?.image || agents[1].image;
     };
 
-    const openPermissions = (robot: any) => {
-        let perms = { allowGoogle: true, allowBrain: true };
-        try {
-            if (robot.config) perms = JSON.parse(robot.config);
-        } catch (e) { }
-        setTempPermissions(perms);
-        setEditingRobot(robot);
-    };
-
-    const savePermissions = async () => {
-        if (!editingRobot) return;
-        try {
-            await robotsApi.update(editingRobot.id, tempPermissions);
-            setRobots(prev => prev.map(r => r.id === editingRobot.id ? { ...r, config: JSON.stringify(tempPermissions) } : r));
-            setEditingRobot(null);
-        } catch (e) {
-            alert("Kunde inte spara behörigheter.");
-        }
-    };
-
     const fetchDashboardData = async () => {
         setChecking(true);
-        // Sync XP/Level from localStorage
-        const allXp = JSON.parse(localStorage.getItem('agent_xp_data') || '{}');
-        setAgentXpMap(allXp);
-
         try {
-            const robotRes = await robotsApi.list();
-            setRobots((robotRes.data as any) || []);
-
-            // Background update simulation logic (simplified)
+            // Background update simulation
             (async () => {
                 try {
                     await api.post('/robots/offline-updates');
@@ -224,15 +227,31 @@ const Dashboard: React.FC = () => {
         fetchDashboardData();
     }, []);
 
-    const handleInitRobots = async () => {
+    // --- MISSION CONTROL STATE ---
+    const [missionPrompt, setMissionPrompt] = useState('');
+    const [isLaunching, setIsLaunching] = useState(false);
+
+    const handleLaunchMission = async () => {
+        if (!missionPrompt.trim()) return;
+        setIsLaunching(true);
         try {
-            const res = await api.post('/robots/init');
-            setRobots((res.data as any) || []);
-            fetchDashboardData();
-        } catch (e) {
-            alert("Kunde inte initiera robotar.");
+            const launchFn = httpsCallable(functions, 'onComplexTaskRequest');
+            const res: any = await launchFn({ task: missionPrompt });
+
+            if (res.data?.result?.task_id) {
+                setMissionPrompt('');
+                setActiveMissionId(res.data.result.task_id);
+            }
+        } catch (e: any) {
+            console.error("Mission launch failed", e);
+            alert(`Failed to launch mission: ${e.message}`);
+        } finally {
+            setIsLaunching(false);
         }
     };
+
+    // Define the full Hive Mind Squad for display
+    const hiveMindSquad = ["Hunter", "Soshie", "Pixel", "Ledger", "Atlas", "Dexter", "Brainy", "Venture", "Nova"];
 
     return (
         <div className="min-h-screen bg-[#F0F2F5] dark:bg-[#0F1623] text-gray-900 dark:text-gray-100 font-sans relative overflow-x-hidden transition-colors duration-300">
@@ -330,6 +349,50 @@ const Dashboard: React.FC = () => {
                     </motion.div>
                 </div>
 
+                {/* --- MOTHER HIVE COMMAND CENTER (Mission Launchpad) --- */}
+                {!activeMissionId && (
+                    <div className="mb-12 relative z-20">
+                        <div className="bg-gradient-to-r from-gray-900 to-black text-white rounded-[2rem] p-8 shadow-2xl border border-white/10 relative overflow-hidden">
+                            {/* Decorative glow */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none"></div>
+
+                            <div className="relative z-10">
+                                <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
+                                        <Bot className="w-6 h-6 text-white" />
+                                    </div>
+                                    Mother Hive Command Center
+                                </h2>
+                                <p className="text-gray-400 mb-6 max-w-2xl">
+                                    Start a complex mission. The High Council (Architect, Critic, Synthesizer) will orchestrate the optimal agent squad to execute your request.
+                                </p>
+
+                                <div className="flex flex-col md:flex-row gap-4">
+                                    <input
+                                        ref={commandInputRef}
+                                        value={missionPrompt}
+                                        onChange={(e) => setMissionPrompt(e.target.value)}
+                                        placeholder="Describe your mission (e.g., 'Research Eco-Tech trends and create a LinkedIn campaign')..."
+                                        className="flex-1 bg-white/10 border border-white/20 rounded-xl px-6 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:bg-white/15 transition-all text-lg"
+                                        onKeyDown={(e) => e.key === 'Enter' && handleLaunchMission()}
+                                    />
+                                    <button
+                                        onClick={handleLaunchMission}
+                                        disabled={isLaunching || !missionPrompt.trim()}
+                                        className={`px-8 py-4 rounded-xl font-bold text-lg shadow-lg flex items-center gap-2 transition-all ${isLaunching ? 'bg-gray-700 cursor-wait' : 'bg-violet-600 hover:bg-violet-700 hover:shadow-violet-600/30 hover:scale-[1.02] active:scale-[0.98]'}`}
+                                    >
+                                        {isLaunching ? (
+                                            <>Initializing <Activity className="w-5 h-5 animate-spin" /></>
+                                        ) : (
+                                            <>Launch Mission <Zap className="w-5 h-5 fill-current" /></>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* --- AGENT CONCIERGE WIDGET --- */}
                 <div className="mb-12 relative z-20">
                     <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-2 shadow-xl shadow-purple-500/5 border border-purple-100 dark:border-purple-900/30 flex flex-col md:flex-row items-center gap-2 max-w-4xl mx-auto transform transition-all hover:scale-[1.01]">
@@ -385,6 +448,20 @@ const Dashboard: React.FC = () => {
                         )}
                     </AnimatePresence>
                 </div>
+
+                {/* --- BRAIN FEED (Active Council Session) --- */}
+                <AnimatePresence>
+                    {activeMissionId && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="mb-12 relative z-20"
+                        >
+                            <BrainFeed taskId={activeMissionId} onReset={() => setActiveMissionId(null)} />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Leveling System Info Banner */}
                 <motion.div
@@ -444,7 +521,7 @@ const Dashboard: React.FC = () => {
                                 </motion.div>
                             </Link>
 
-                            <StatCard icon={Users} label="Aktiva Agenter" value={robots.length} color="bg-purple-500" delay={0.2} />
+                            <StatCard icon={Users} label="Totala Agenter" value={hiveMindSquad.length} color="bg-purple-500" delay={0.2} />
 
                             {/* Next Meeting Special Card */}
                             {nextMeeting ? (
@@ -461,7 +538,7 @@ const Dashboard: React.FC = () => {
                                     </div>
                                     <h3 className="font-bold text-gray-900 dark:text-white truncate pr-4 mb-1 text-lg">{nextMeeting.summary}</h3>
                                     <p className="text-yellow-700 dark:text-yellow-400 font-medium text-sm flex items-center gap-2 mb-4">
-                                        <Clock className="w-4 h-4" /> {new Date(nextMeeting.start).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                                        <Clock className="w-4 h-4" /> {new Date(nextMeeting.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                     {nextMeeting.meetLink && (
                                         <a href={nextMeeting.meetLink} target="_blank" rel="noreferrer" className="inline-flex items-center text-xs font-bold text-white bg-yellow-500 hover:bg-yellow-600 px-4 py-2 rounded-xl transition-colors shadow-sm">
@@ -481,92 +558,105 @@ const Dashboard: React.FC = () => {
                                     <Bot className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                                     <span>Mina Agenter</span>
                                 </h2>
-                                {!robots.length && (
+                                {!activeMissionId && (
                                     <button
-                                        onClick={handleInitRobots}
+                                        onClick={scrollToCommandCenter}
                                         className="text-sm font-bold text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-xl transition-all"
                                     >
-                                        + Initiera Team
+                                        + Starta Uppdrag
                                     </button>
                                 )}
                             </div>
 
-                            {robots.length > 0 ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {robots.map((robot, idx) => {
-                                        const rXp = agentXpMap[robot.id] || 0;
-                                        const rLevel = Math.floor(rXp / 100) + 1;
-                                        const xpProgress = rXp % 100;
+                            {/* ALWAYS SHOW HIVE MIND SQUAD */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {hiveMindSquad.map((agentName, idx) => {
+                                    const isActive = activeMissionId !== null;
+                                    const agentInfo = agents.find(a => a.name === agentName) || agents[0]; // Fallback info
 
-                                        return (
-                                            <motion.div
-                                                key={robot.id}
-                                                initial={{ opacity: 0, y: 20 }}
-                                                animate={{ opacity: 1, y: 0 }}
-                                                transition={{ delay: 0.4 + (idx * 0.1) }}
-                                            >
-                                                <Link
-                                                    to={`/robot/${robot.id}`}
-                                                    className="block group bg-white dark:bg-gray-800 rounded-[2rem] p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] transition-all duration-300 border border-gray-100 dark:border-gray-700 relative overflow-hidden"
-                                                >
-                                                    {/* Card Decoration */}
-                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-gray-50 dark:bg-gray-700/50 rounded-bl-[100px] -mr-8 -mt-8 transition-all group-hover:bg-purple-50/50 dark:group-hover:bg-purple-900/20"></div>
-
-                                                    <div className="flex items-start gap-5 relative z-10">
-                                                        <div className="relative">
-                                                            <div className="w-20 h-20 rounded-2xl bg-gray-50 dark:bg-gray-700 p-1 border border-gray-200 dark:border-gray-600 group-hover:border-purple-200 dark:group-hover:border-purple-800 transition-colors bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
-                                                                <img src={getAgentImage(robot.name)} alt={robot.name} className="w-full h-full object-cover rounded-xl" />
-                                                            </div>
-                                                            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-gray-900 dark:bg-black border-[3px] border-white dark:border-gray-800 rounded-full flex items-center justify-center text-[10px] text-white font-bold" title={`Level ${rLevel}`}>{rLevel}</div>
-                                                        </div>
-
-                                                        <div className="flex-1 pt-1">
-                                                            <div className="flex justify-between items-start">
-                                                                <div>
-                                                                    <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{robot.name}</h3>
-                                                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{robot.type}</span>
-                                                                </div>
-                                                                <button
-                                                                    onClick={(e) => { e.preventDefault(); openPermissions(robot); }}
-                                                                    className="text-gray-300 hover:text-purple-600 transition-colors p-1"
-                                                                >
-                                                                    <Settings className="w-5 h-5" />
-                                                                </button>
-                                                            </div>
-
-                                                            {/* XP Bar on Card */}
-                                                            <div className="mt-3 mb-1">
-                                                                <div className="flex justify-between text-[10px] text-gray-400 font-bold mb-1 uppercase tracking-wide">
-                                                                    <span>Level {rLevel}</span>
-                                                                    <span>{xpProgress}% XP</span>
-                                                                </div>
-                                                                <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                                                                    <div className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full" style={{ width: `${xpProgress}%` }}></div>
-                                                                </div>
-                                                            </div>
-
-                                                            <div className="mt-3 flex items-center gap-2">
-                                                                <span className="px-4 py-2 rounded-xl bg-gray-900 text-white text-xs font-bold group-hover:bg-purple-600 transition-colors flex items-center gap-2 shadow-lg">
-                                                                    Öppna Workspace <ArrowRight className="w-3 h-3" />
-                                                                </span>
-                                                            </div>
-                                                        </div>
+                                    return (
+                                        <motion.div
+                                            key={agentName}
+                                            initial={{ opacity: 0, y: 20 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{ delay: idx * 0.05 }}
+                                            className={`rounded-3xl p-1 shadow-lg transition-all duration-500 
+                                                ${isActive
+                                                    ? "bg-gradient-to-br from-violet-900/10 to-transparent border border-violet-500/30 ring-1 ring-violet-500/20 shadow-violet-500/20"
+                                                    : "bg-white dark:bg-gray-800 border border-transparent hover:scale-[1.01] hover:shadow-xl"
+                                                }`}
+                                        >
+                                            <div onClick={() => setSelectedAgentId(agentInfo.id)} className="block h-full cursor-pointer relative z-10 outline-none focus:ring-2 focus:ring-violet-500 rounded-[1.3rem]">
+                                                <div className="bg-white dark:bg-gray-800 rounded-[1.3rem] p-6 h-full flex flex-col relative overflow-hidden group">
+                                                    <div className="absolute top-2 right-2 flex gap-1">
+                                                        {isActive && (
+                                                            <span className="bg-green-500/10 text-green-500 text-[10px] font-bold px-2 py-1 rounded-full border border-green-500/20 animate-pulse">● LIVE</span>
+                                                        )}
                                                     </div>
-                                                </Link>
-                                            </motion.div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="bg-white dark:bg-gray-800 rounded-3xl p-12 text-center border border-dashed border-gray-300 dark:border-gray-700">
-                                    <Bot className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Inga agenter aktiva</h3>
-                                    <p className="text-gray-500 mb-6">Starta ditt team för att se dem här.</p>
-                                    <button onClick={handleInitRobots} className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:shadow-xl hover:scale-105 transition-all">
-                                        Initiera Agenter
-                                    </button>
-                                </div>
-                            )}
+                                                    <div className="w-full flex flex-col items-center relative z-10">
+
+                                                        {/* Agent Info & Image */}
+                                                        <div className="flex flex-col items-center z-20 bg-white dark:bg-gray-800 rounded-2xl p-2">
+                                                            <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shadow-md mb-2 relative">
+                                                                <img src={getAgentImage(agentName)} alt={agentName} className="w-full h-full object-cover" />
+                                                            </div>
+                                                            <div className="text-center">
+                                                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{agentName}</h3>
+                                                                <div className="text-sm text-gray-400">{agentInfo.role}</div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* TREE CONNECTOR CABLE (Only if sub-agents exist) */}
+                                                        {agentInfo.subAgents && agentInfo.subAgents.length > 0 && (
+                                                            <div className="flex flex-col items-center w-full mt-[-10px] pt-[10px] relative z-0">
+                                                                {/* Main Vertical Trunk */}
+                                                                <div className="w-[2px] h-8 bg-gradient-to-b from-violet-500 to-violet-300"></div>
+
+                                                                {/* Horizontal Branch Bar */}
+                                                                <div className="w-[140px] h-[2px] bg-violet-300 relative">
+                                                                    {/* Vertical Drops to Sub-Agents */}
+                                                                    <div className="absolute left-0 top-0 w-[2px] h-4 bg-violet-300"></div>
+                                                                    <div className="absolute left-1/2 -translate-x-1/2 top-0 w-[2px] h-4 bg-violet-300"></div>
+                                                                    <div className="absolute right-0 top-0 w-[2px] h-4 bg-violet-300"></div>
+                                                                </div>
+
+                                                                {/* Sub-Agent Icons Row */}
+                                                                <div className="flex justify-between w-[160px] mt-2">
+                                                                    {agentInfo.subAgents.map(sub => (
+                                                                        <div key={sub.id} className="flex flex-col items-center group/sub cursor-help relative">
+                                                                            <div className="w-10 h-10 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-violet-200 dark:border-violet-900 flex items-center justify-center hover:scale-110 hover:border-violet-500 transition-all shadow-sm">
+                                                                                <img src={sub.smallIcon} alt={sub.name} className="w-6 h-6 opacity-70 group-hover/sub:opacity-100" />
+                                                                            </div>
+                                                                            <div className="opacity-0 group-hover/sub:opacity-100 absolute -bottom-6 text-[9px] bg-black text-white px-2 py-1 rounded whitespace-nowrap transition-opacity pointer-events-none z-30">
+                                                                                {sub.name}
+                                                                            </div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="mt-auto">
+                                                        {isActive ? (
+                                                            <>
+                                                                <div className="text-xs text-gray-500 mb-2">Status: Active in Hive Mind</div>
+                                                                <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                    <div className="h-full bg-violet-500 w-full animate-pulse-slow"></div>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <div className="text-xs text-gray-400">
+                                                                Väntar på uppdrag från Mother Hive...
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -676,60 +766,15 @@ const Dashboard: React.FC = () => {
 
 
             {/* Permissions Modal */}
-            <AnimatePresence>
-                {editingRobot && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setEditingRobot(null)}>
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white dark:bg-gray-800 rounded-[2rem] w-full max-w-md shadow-2xl p-8 relative"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="flex justify-between items-center mb-8">
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                                    <Shield className="w-7 h-7 text-purple-600" />
-                                    Behörigheter
-                                </h3>
-                                <button onClick={() => setEditingRobot(null)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400 transition-colors">
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
 
-                            <p className="text-sm text-gray-500 mb-6">Ställ in vad <strong>{editingRobot.name}</strong> får komma åt.</p>
-
-                            <div className="space-y-4 mb-8">
-                                {[
-                                    { key: 'allowGoogle', icon: Mail, label: 'Google & Kalender', sub: 'Läs mail, boka möten', color: 'text-blue-500' },
-                                    { key: 'allowBrain', icon: Cpu, label: 'Företagsminne', sub: 'Läs indexerade dokument', color: 'text-yellow-500' }
-                                ].map((perm: any) => (
-                                    <div key={perm.key} className="flex items-center justify-between p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600 transition-colors cursor-pointer" onClick={() => setTempPermissions((p: any) => ({ ...p, [perm.key]: !p[perm.key] }))}>
-                                        <div className="flex items-center gap-4">
-                                            <div className={`p-3 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${perm.color}`}>
-                                                <perm.icon className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-gray-900 dark:text-white">{perm.label}</div>
-                                                <div className="text-xs text-gray-400">{perm.sub}</div>
-                                            </div>
-                                        </div>
-                                        <div className={`w-12 h-7 rounded-full transition-colors relative ${tempPermissions[perm.key as keyof typeof tempPermissions] ? 'bg-green-500' : 'bg-gray-300'}`}>
-                                            <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${tempPermissions[perm.key as keyof typeof tempPermissions] ? 'left-6' : 'left-1'}`}></div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <button
-                                onClick={savePermissions}
-                                className="w-full py-4 rounded-xl bg-gray-900 text-white font-bold text-lg hover:bg-black transition-all shadow-lg hover:shadow-xl active:scale-95 flex items-center justify-center gap-2"
-                            >
-                                <Check className="w-5 h-5" /> Spara Inställningar
-                            </button>
-                        </motion.div>
+            {/* CHAT OVERLAY */}
+            {selectedAgentId && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm animate-in fade-in duration-300 flex items-center justify-center p-4">
+                    <div className="w-full h-full max-w-[1600px] max-h-[90vh] bg-gray-900 rounded-3xl overflow-hidden shadow-2xl relative">
+                        <RobotWorkspace propAgentId={selectedAgentId} onClose={() => setSelectedAgentId(null)} />
                     </div>
-                )}
-            </AnimatePresence>
+                </div>
+            )}
         </div >
     );
 };

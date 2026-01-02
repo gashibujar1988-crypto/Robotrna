@@ -7,6 +7,7 @@ import robotResearch from '../assets/robot_research.png';
 import { useAuth } from '../context/AuthContext';
 import LeadsDrawer from '../components/LeadsDrawer';
 import InternalSupportDesk from '../components/InternalSupportDesk';
+import SoshieWorkspace from '../components/SoshieWorkspace';
 
 // TypeScript Interfaces
 interface TaskStep {
@@ -70,8 +71,14 @@ interface Message {
     avatar?: string;
 }
 
-const RobotWorkspace: React.FC = () => {
-    const { id } = useParams<{ id: string }>();
+interface RobotWorkspaceProps {
+    propAgentId?: string;
+    onClose?: () => void;
+}
+
+const RobotWorkspace: React.FC<RobotWorkspaceProps> = ({ propAgentId, onClose }) => {
+    const { id: paramId } = useParams<{ id: string }>();
+    const id = propAgentId || paramId;
     const navigate = useNavigate();
     const { } = useAuth();
     const [robot, setRobot] = useState<any>(null);
@@ -82,7 +89,7 @@ const RobotWorkspace: React.FC = () => {
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef<any>(null);
     const silenceTimer = useRef<any>(null);
-    const [viewMode, setViewMode] = useState<'chat' | 'support'>('chat');
+    const [viewMode, setViewMode] = useState<'chat' | 'support' | 'social'>('chat');
     const [level] = useState(1);
     const [googleToken] = useState<string | null>(localStorage.getItem('google_access_token'));
     const [lastImage, setLastImage] = useState<string | null>(null);
@@ -995,6 +1002,24 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                             </div>
                         )}
 
+                        {/* VIEW TOGGLE - ONLY FOR SOSHIE */}
+                        {robot.name === 'Soshie' && (
+                            <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
+                                <button
+                                    onClick={() => setViewMode('chat')}
+                                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'chat' ? 'bg-white text-black shadow-lg' : 'text-white/50 hover:text-white'}`}
+                                >
+                                    AI WORKSPACE
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('social')}
+                                    className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'social' ? 'bg-pink-500 text-white shadow-lg' : 'text-white/50 hover:text-white'}`}
+                                >
+                                    SOCIAL INBOX
+                                </button>
+                            </div>
+                        )}
+
                         <div className="w-32"></div> {/* Spacer */}
                     </div>
 
@@ -1002,6 +1027,8 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                     <div className="flex-1 overflow-hidden relative">
                         {viewMode === 'support' ? (
                             <InternalSupportDesk googleToken={googleToken} />
+                        ) : viewMode === 'social' ? (
+                            <SoshieWorkspace />
                         ) : (
                             <div className="flex h-full">
                                 {/* CHAT COLUMN */}
@@ -1342,6 +1369,8 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                                     </div>
                                 </div>
 
+
+
                                 {/* RIGHT COLUMN (Tasks, Draft or Agent Image) */}
                                 <div className="w-5/12 hidden md:flex flex-col border-l border-white/10 bg-black/20 backdrop-blur-sm relative overflow-hidden transition-all duration-500">
 
@@ -1419,6 +1448,16 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                         )}
                     </div>
                 </div>
+                {/* Modal Close Button */}
+                {onClose && (
+                    <button
+                        onClick={onClose}
+                        className="absolute top-4 right-4 z-[60] bg-white/10 hover:bg-white/20 text-white p-2 rounded-full transition-all backdrop-blur-md"
+                    >
+                        <X className="w-6 h-6" />
+                    </button>
+                )}
+
             </div>
             {/* --- LEADS DRAWER COMPONENT --- */}
             <LeadsDrawer

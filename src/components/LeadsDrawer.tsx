@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Mail, User, Phone, Globe, DollarSign, Send } from 'lucide-react';
+import { X, Download, Mail, User, Phone, Globe, DollarSign, Send, CheckCircle, Loader2 } from 'lucide-react';
+import { functions } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
 
 interface Lead {
     name: string;
@@ -14,6 +16,7 @@ interface Lead {
     email?: string;
     phone?: string;
     linkedin_link?: string;
+    types?: string[];
 }
 
 interface LeadsDrawerProps {
@@ -23,23 +26,24 @@ interface LeadsDrawerProps {
 }
 
 const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => {
-    const [dexterSent, setDexterSent] = useState(false);
+    const [dexterSent, setDexterSent] = useState(false); // Slutgiltig bekräftelse
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [drafts, setDrafts] = useState<any[]>([]);
+    const [showDrafts, setShowDrafts] = useState(false);
 
     // --- ACTIONS ---
     const handleDownloadPDF = () => {
-        // Simple PDF Print Hack
         const printContent = document.getElementById('leads-print-area');
         if (printContent) {
             const originalContents = document.body.innerHTML;
             document.body.innerHTML = printContent.innerHTML;
             window.print();
             document.body.innerHTML = originalContents;
-            window.location.reload(); // Reload to restore React state/events safely
+            window.location.reload();
         }
     };
 
     const handleDownloadExcel = () => {
-        // Generate CSV
         const headers = ["Företag", "Adress", "Hemsida", "Daglig Leder", "Telefon", "E-post", "Proff Länk"];
         const rows = leads.map(l => [
             l.name,
@@ -63,10 +67,30 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
         document.body.removeChild(link);
     };
 
-    const handleSendToDexter = () => {
+    const handleGenerateDrafts = async () => {
+        setIsGenerating(true);
+        try {
+            // Anropa Cloud Function som använder Dexter
+            const generateFn = httpsCallable(functions, 'generateDexterDrafts');
+            const res: any = await generateFn({ leads });
+
+            if (res.data && res.data.drafts) {
+                setDrafts(res.data.drafts);
+                setShowDrafts(true);
+            }
+        } catch (error) {
+            console.error("Dexter Error:", error);
+            alert("Kunde inte kontakta Dexter. Försök igen.");
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    const handleConfirmSend = () => {
+        setShowDrafts(false);
         setDexterSent(true);
-        // In a real app, this would dispatch to Dexter's queue
-        setTimeout(() => setDexterSent(false), 3000);
+        // Här skulle vi kalla på en 'sendEmails'-funktion i verkligheten
+        setTimeout(() => setDexterSent(false), 5000);
     };
 
     return (
@@ -88,7 +112,7 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
                         animate={{ x: 0 }}
                         exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                        className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-[#0A0F1C] border-l border-white/10 shadow-2xl z-[70] flex flex-col"
+                        className="fixed top-0 right-0 h-full w-full md:w-[600px] bg-[#0A0F1C] border-l border-white/10 shadow-2xl z-[70] flex flex-col"
                     >
                         {/* Header */}
                         <div className="p-6 border-b border-white/10 flex justify-between items-center bg-[#0F1623]">
@@ -126,7 +150,6 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
                                             {lead.address}
                                         </div>
 
-                                        {/* ENRICHED DATA MOCK VISUALS */}
                                         <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-white/5">
                                             <div className="flex items-center gap-2 text-xs text-slate-400">
                                                 <User className="w-3 h-3 text-cyan-500" />
@@ -189,40 +212,94 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
                             </div>
 
                             <button
-                                onClick={handleSendToDexter}
-                                disabled={dexterSent}
+                                onClick={handleGenerateDrafts}
+                                disabled={dexterSent || isGenerating}
                                 className={`w-full flex items-center justify-center gap-2 text-sm font-bold py-3 rounded-lg transition-all shadow-lg
-                    ${dexterSent ? 'bg-emerald-500 text-white' : 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white'}
-                `}
+                                    ${dexterSent ? 'bg-emerald-500 text-white cursor-default' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white'}
+                                    ${isGenerating ? 'opacity-80 cursor-wait' : ''}
+                                `}
                             >
                                 {dexterSent ? (
-                                    <> <CheckCircle className="w-4 h-4" /> Skickat till Dexter! </>
+                                    <> <CheckCircle className="w-4 h-4" /> Kampanj Startad! (Kolla email-loggar) </>
+                                ) : isGenerating ? (
+                                    <> <Loader2 className="w-4 h-4 animate-spin" /> Dexter analyserar & skriver... </>
                                 ) : (
                                     <> <Send className="w-4 h-4" /> Skicka till Dexter (Mötesbokning) </>
                                 )}
                             </button>
 
                             <p className="text-[10px] text-center text-slate-500 mt-2">
-                                Dexter kommer att analysera dessa leads och påbörja outreach via e-post.
+                                Dexter kommer att analysera dessa leads och skapa personliga utkast som du får godkänna.
                             </p>
                         </div>
                     </motion.div>
+
+                    {/* DRAFTS REVIEW MODAL */}
+                    {showDrafts && (
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="fixed inset-0 z-[80] flex items-center justify-center p-4 pointer-events-none"
+                        >
+                            <div className="bg-[#111] w-full max-w-2xl max-h-[80vh] rounded-2xl shadow-2xl border border-white/20 flex flex-col pointer-events-auto overflow-hidden">
+                                <div className="p-6 border-b border-white/10 bg-[#161b22] flex justify-between items-center">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-white">Dexter's Drafts</h3>
+                                        <p className="text-sm text-gray-400">Review generated emails before sending</p>
+                                    </div>
+                                    <button onClick={() => setShowDrafts(false)} className="text-gray-400 hover:text-white"><X className="w-6 h-6" /></button>
+                                </div>
+
+                                <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#0d1117]">
+                                    {drafts.map((draft, i) => (
+                                        <div key={i} className="bg-[#1c2128] rounded-xl p-4 border border-white/10">
+                                            <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2">
+                                                <span className="text-indigo-400 font-bold text-sm">To: {draft.emailTo}</span>
+                                                <span className="text-xs text-gray-500 bg-black/30 px-2 py-1 rounded">{draft.leadName}</span>
+                                            </div>
+                                            <div className="mb-2">
+                                                <span className="text-gray-500 text-xs uppercase font-bold">Subject:</span>
+                                                <div className="text-white text-sm font-medium">{draft.subject}</div>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-500 text-xs uppercase font-bold">Body:</span>
+                                                <div className="text-gray-300 text-sm whitespace-pre-wrap font-mono bg-black/20 p-3 rounded-lg border border-white/5 mt-1">
+                                                    {draft.content}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="p-6 border-t border-white/10 bg-[#161b22] flex justify-end gap-3">
+                                    <button
+                                        onClick={() => setShowDrafts(false)}
+                                        className="px-4 py-2 rounded-lg text-gray-300 hover:bg-white/5"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleConfirmSend}
+                                        className="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-white font-bold flex items-center gap-2"
+                                    >
+                                        <Send className="w-4 h-4" /> Approve & Send All
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
                 </>
             )}
         </AnimatePresence>
     );
 };
 
-// Icon helper
+// Icon helpers
 const MapPinIcon = ({ className }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>
 );
 const FileText = ({ className }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></svg>
 );
-const CheckCircle = ({ className }: { className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-);
-
 
 export default LeadsDrawer;

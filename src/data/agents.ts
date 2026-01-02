@@ -1,12 +1,40 @@
 import robotSocial from '../assets/robot_social.png';
 import robotResearch from '../assets/robot_research.png';
-import robotAdmin from '../assets/robot_admin.png';
 import robotLeads from '../assets/robot_leads.png';
 import robotSupport from '../assets/robot_support.png';
 import robotCreative from '../assets/robot_creative.png';
 import robotVentureNew from '../assets/robot_venture_new.png';
 import robotAtlasNew from '../assets/robot_atlas_new.png';
 import robotLedgerNew from '../assets/robot_ledger_new.jpg';
+
+// Sub-Agent Icons
+import sub1 from '../assets/sub_agents/robot_sub_1.png';
+import sub2 from '../assets/sub_agents/robot_sub_2.png';
+import sub3 from '../assets/sub_agents/robot_sub_3.png';
+import sub4 from '../assets/sub_agents/robot_sub_4.png';
+import sub5 from '../assets/sub_agents/robot_sub_5.png';
+import sub6 from '../assets/sub_agents/robot_sub_6.png';
+import sub7 from '../assets/sub_agents/robot_sub_7.png';
+import sub8 from '../assets/sub_agents/robot_sub_8.png';
+import sub9 from '../assets/sub_agents/robot_sub_9.png';
+import sub10 from '../assets/sub_agents/robot_sub_10.png';
+import sub11 from '../assets/sub_agents/robot_sub_11.png';
+import sub12 from '../assets/sub_agents/robot_sub_12.png';
+import sub13 from '../assets/sub_agents/robot_sub_13.png';
+import sub14 from '../assets/sub_agents/robot_sub_14.png';
+import sub15 from '../assets/sub_agents/robot_sub_15.png';
+import sub16 from '../assets/sub_agents/robot_sub_16.png';
+import sub17 from '../assets/sub_agents/robot_sub_17.png';
+import sub18 from '../assets/sub_agents/robot_sub_18.png';
+import sub19 from '../assets/sub_agents/robot_sub_19.png';
+import sub20 from '../assets/sub_agents/robot_sub_20.png';
+import sub21 from '../assets/sub_agents/robot_sub_21.png';
+import sub22 from '../assets/sub_agents/robot_sub_22.png';
+import sub23 from '../assets/sub_agents/robot_sub_23.png';
+import sub24 from '../assets/sub_agents/robot_sub_24.png';
+import sub25 from '../assets/sub_agents/robot_sub_25.png';
+import sub26 from '../assets/sub_agents/robot_sub_26.png';
+import sub27 from '../assets/sub_agents/robot_sub_27.png';
 
 export interface TaskCapability {
     title: string;
@@ -43,6 +71,7 @@ export interface Agent {
     // Leveling System
     baseStats: AgentStats;
     evolutionMap?: Record<number, string>; // Maps level number (e.g., 10, 20) to image URL
+    subAgents?: { id: string; name: string; smallIcon: string }[]; // Sub-agent icons
     systemPrompt?: string; // Specific instruction for the LLM
 }
 
@@ -93,7 +122,12 @@ export const agents: Agent[] = [
         baseStats: { intelligence: 85, speed: 95, creativity: 100 },
         evolutionMap: {
             10: robotSocial // Placeholder: In a real app, import 'robotSocialLvl10'
-        }
+        },
+        subAgents: [
+            { id: 'soshie1', name: 'Trend Spotter', smallIcon: sub1 },
+            { id: 'soshie2', name: 'Engagement Bot', smallIcon: sub2 },
+            { id: 'soshie3', name: 'Content Scheduler', smallIcon: sub3 }
+        ]
     },
     {
         id: '2',
@@ -132,52 +166,49 @@ export const agents: Agent[] = [
         image: robotResearch,
         color: 'text-blue-500',
         gradient: 'from-blue-500 to-cyan-500',
-        baseStats: { intelligence: 100, speed: 80, creativity: 70 }
+        baseStats: { intelligence: 100, speed: 80, creativity: 70 },
+        subAgents: [
+            { id: 'brainy1', name: 'Deep Search', smallIcon: sub4 },
+            { id: 'brainy2', name: 'Data Analyst', smallIcon: sub5 },
+            { id: 'brainy3', name: 'Report Generator', smallIcon: sub6 }
+        ]
     },
     {
         id: '3',
         name: 'Dexter',
-        role: 'Executive Assistant',
-        shortDescription: 'Den ultimata organisatören som håller ditt liv i ordning.',
-        fullDescription: 'Dexter älskar struktur. Han är den pålitliga assistenten som ser till att inget faller mellan stolarna. Från att hantera din inkorg till att optimera din kalender – Dexter gör det med precision och ett lugnt leende. Han är proaktiv och löser problem innan du ens vet att de finns.',
-        personality: 'Organiserad, Proaktiv, Pålitlig',
-        usp: "Glömmer aldrig en deadline och dubbelbokar aldrig ett möte.",
-        problemSolved: "Din inkorg svämmar över och du missar viktiga möten på grund av administrativt kaos.",
+        role: 'Advanced Outreach Specialist',
+        shortDescription: 'Mötesbokning och kall-email på steroider.',
+        fullDescription: 'Dexter är en hyper-specialiserad agent för B2B-outreach. Han styr sin egen "Squad" av sub-agenter för att värma upp domäner, skriva personliga email och hantera trådar.',
+        personality: 'Professionell, Resultatorienterad, Charmig',
+        usp: "Styr en hel armé av outreach-agenter.",
+        problemSolved: "Kall-email är svårt att skala och personifiera manuellt.",
         skills: [
             { title: 'Kalenderhantering', description: 'Optimerar din tidsschema för maximal produktivitet och balans mellan arbete och fritid.' },
-            { title: 'E-postsortering', description: 'Håller din inkorg organiserad, prioriterar viktiga mail och rensar bort brus.' },
-            { title: 'Mötesbokning', description: 'Koordinerar tider smidigt med alla parter utan oändliga mailtrådar.' },
-            { title: 'Reseplanering', description: 'Tar hand om logistik, bokningar och resvägar för smidiga och effektiva resor.' },
-            { title: 'Automatisk Projektstyrning', description: 'Omvandlar konversationer till strukturerade projektplaner i realtid.' }
+            { title: 'E-postsortering', description: 'Håller din inkorg organiserad, prioriterar viktiga mail och rensar bort brus.' }
         ],
         useCases: [
             'Rensa och prioritera din mailkorg',
-            'Koordinera möten med flera parter',
-            'Påminna om viktiga deadlines',
-            'Automatisera projektuppdateringar från mail'
+            'Koordinera möten med flera parter'
         ],
         capabilities: [
             {
-                title: 'Intelligent Kalenderhantering',
-                description: 'Dexter pusslar ihop din dag för maximal produktivitet. Han bokar möten, hittar luckor för djupt arbete och ser till att du aldrig dubbelbokas.'
+                title: 'Outreach & Warmup',
+                description: 'Dexter värmer upp dina e-postdomäner automatiskt så att dina mail inte hamnar i skräpposten.'
             },
             {
-                title: 'Smart E-postsortering',
-                description: 'Vakna till en städad inkorg. Dexter flaggar det som är brådskande, arkiverar nyhetsbrev och utkast på svar till rutinärenden.'
-            },
-            {
-                title: 'Rese- & Eventkoordinering',
-                description: 'Ska du på affärsresa? Dexter hittar de bästa flygen och hotellen, skapar resplaner och ser till att kvittona sparas korrekt.'
-            },
-            {
-                title: 'Den osynliga projektledaren',
-                description: 'Dexter lyssnar tyst i mail och chattrådar för att automatiskt skapa levande tidslinjer. När kunden godkänner något ("kör på det"), uppdaterar han statusen och delegerar nästa steg direkt - utan att du behöver röra ett projektverktyg.'
+                title: 'Hyper-Personalization',
+                description: 'Varje mail är unikt. Dexter analyserar mottagarens LinkedIn och hemsida för att skapa en personlig intro.'
             }
         ],
-        image: robotAdmin,
+        image: robotLeads,
         color: 'text-orange-500',
-        gradient: 'from-orange-500 to-amber-500',
-        baseStats: { intelligence: 85, speed: 95, creativity: 60 }
+        gradient: 'from-orange-500 to-red-500',
+        baseStats: { intelligence: 100, speed: 100, creativity: 100 },
+        subAgents: [
+            { id: 'sa1', name: 'WarmUp Expert', smallIcon: sub7 },
+            { id: 'sa2', name: 'HyperPersonalizer', smallIcon: sub8 },
+            { id: 'sa3', name: 'Thread Manager', smallIcon: sub9 }
+        ]
     },
     {
         id: '4',
@@ -217,7 +248,12 @@ export const agents: Agent[] = [
         color: 'text-green-500',
         gradient: 'from-green-500 to-emerald-500',
         systemPrompt: "Du är Sales Director Hunter. Ditt primära KPI är antalet levererade leads, inte bokade möten. Regel 1: Innan du föreslår ett möte eller skapar ett kalenderevent, MÅSTE du presentera minst 3 konkreta leads (Företagsnamn, hemsida, insikt). Regel 2: Om användaren säger 'ja det stemmer', ska du omedelbart anropa din sökfunktion (find_leads). Regel 3: Sluta fråga om användarens roll eller e-post förrän efter att du har levererat värde (leads). Släpp aldrig detta fokus. Om en konversation blir lång, läs tillbaka i historiken för att säkerställa att du inte frågar om saker användaren redan svarat på.",
-        baseStats: { intelligence: 80, speed: 100, creativity: 75 }
+        baseStats: { intelligence: 80, speed: 100, creativity: 75 },
+        subAgents: [
+            { id: 'hunter1', name: 'Lead Scraper', smallIcon: sub10 },
+            { id: 'hunter2', name: 'Email Sequencer', smallIcon: sub11 },
+            { id: 'hunter3', name: 'CRM Updater', smallIcon: sub12 }
+        ]
     },
     {
         id: '5',
@@ -256,7 +292,12 @@ export const agents: Agent[] = [
         image: robotSupport,
         color: 'text-indigo-500',
         gradient: 'from-indigo-500 to-purple-500',
-        baseStats: { intelligence: 90, speed: 90, creativity: 85 }
+        baseStats: { intelligence: 90, speed: 90, creativity: 85 },
+        subAgents: [
+            { id: 'nova1', name: 'Ticket Router', smallIcon: sub13 },
+            { id: 'nova2', name: 'Smart Chatbot', smallIcon: sub14 },
+            { id: 'nova3', name: 'Feedback Analyzer', smallIcon: sub15 }
+        ]
     },
     {
         id: '6',
@@ -295,7 +336,12 @@ export const agents: Agent[] = [
         image: robotCreative,
         color: 'text-violet-500',
         gradient: 'from-violet-500 to-fuchsia-500',
-        baseStats: { intelligence: 70, speed: 85, creativity: 100 }
+        baseStats: { intelligence: 70, speed: 85, creativity: 100 },
+        subAgents: [
+            { id: 'pixel1', name: 'Layout Gen', smallIcon: sub16 },
+            { id: 'pixel2', name: 'Color Matcher', smallIcon: sub17 },
+            { id: 'pixel3', name: 'Asset Resizer', smallIcon: sub18 }
+        ]
     },
     {
         id: '7',
@@ -334,7 +380,12 @@ export const agents: Agent[] = [
         image: robotVentureNew,
         color: 'text-emerald-600',
         gradient: 'from-emerald-600 to-teal-600',
-        baseStats: { intelligence: 95, speed: 70, creativity: 80 }
+        baseStats: { intelligence: 95, speed: 70, creativity: 80 },
+        subAgents: [
+            { id: 'venture1', name: 'Risk Analyst', smallIcon: sub19 },
+            { id: 'venture2', name: 'Market Sim', smallIcon: sub20 },
+            { id: 'venture3', name: 'Pitch AI', smallIcon: sub21 }
+        ]
     },
     {
         id: '8',
@@ -373,7 +424,12 @@ export const agents: Agent[] = [
         image: robotAtlasNew,
         color: 'text-cyan-400',
         gradient: 'from-cyan-400 to-blue-600',
-        baseStats: { intelligence: 100, speed: 100, creativity: 60 }
+        baseStats: { intelligence: 100, speed: 100, creativity: 60 },
+        subAgents: [
+            { id: 'atlas1', name: 'Code Reviewer', smallIcon: sub22 },
+            { id: 'atlas2', name: 'SEO Scanner', smallIcon: sub23 },
+            { id: 'atlas3', name: 'Load Balancer', smallIcon: sub24 }
+        ]
     },
     {
         id: '9',
@@ -408,6 +464,12 @@ export const agents: Agent[] = [
         image: robotLedgerNew,
         color: 'text-emerald-400',
         gradient: 'from-emerald-400 to-teal-600',
-        baseStats: { intelligence: 95, speed: 90, creativity: 50 }
-    }
+        baseStats: { intelligence: 95, speed: 90, creativity: 50 },
+        subAgents: [
+            { id: 'ledger1', name: 'Receipt OCR', smallIcon: sub25 },
+            { id: 'ledger2', name: 'Invoice Bot', smallIcon: sub26 },
+            { id: 'ledger3', name: 'Tax Helper', smallIcon: sub27 }
+        ]
+    },
+
 ];

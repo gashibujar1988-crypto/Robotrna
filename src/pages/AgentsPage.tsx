@@ -179,13 +179,44 @@ const AgentsPage: React.FC = () => {
                                                         </>
                                                     )}
                                                 </div>
-                                                <div className="relative w-24 h-24">
-                                                    <div className={`absolute inset-0 bg-gradient-to-r ${agent.gradient} opacity-20 blur-2xl rounded-full`} />
-                                                    <img
-                                                        src={agent.image}
-                                                        alt={agent.name}
-                                                        className="w-full h-full object-cover rounded-2xl border-2 border-white dark:border-gray-600 shadow-lg relative z-10 bg-gray-50 dark:bg-gray-700 animate-float"
-                                                    />
+                                                <div className="flex flex-col items-center gap-3">
+                                                    <div className="relative w-24 h-24">
+                                                        <div className={`absolute inset-0 bg-gradient-to-r ${agent.gradient} opacity-20 blur-2xl rounded-full`} />
+                                                        <img
+                                                            src={agent.image}
+                                                            alt={agent.name}
+                                                            className="w-full h-full object-cover rounded-2xl border-2 border-white dark:border-gray-600 shadow-lg relative z-10 bg-gray-50 dark:bg-gray-700 animate-float"
+                                                        />
+                                                    </div>
+
+                                                    {/* Sub-Agent Visuals */}
+                                                    {agent.subAgents && agent.subAgents.length > 0 && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: -10 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            transition={{ delay: 0.2, duration: 0.5 }}
+                                                            className="sub-agent-tree flex justify-center relative pt-4"
+                                                        >
+                                                            {/* Connector (Cable) */}
+                                                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[2px] h-4 bg-gradient-to-b from-gray-200 to-gray-50 dark:from-gray-700 dark:to-gray-800" />
+
+                                                            <div className="sub-icon-container flex gap-2 bg-white/50 dark:bg-gray-800/50 p-1.5 rounded-full border border-gray-100 dark:border-gray-700 backdrop-blur-sm shadow-sm z-10">
+                                                                {agent.subAgents.map((sub: any) => (
+                                                                    <div key={sub.id} className="relative group/icon">
+                                                                        <img
+                                                                            src={sub.smallIcon}
+                                                                            className="w-6 h-6 rounded-full grayscale hover:grayscale-0 transition-all duration-300 hover:scale-125 cursor-help border border-white/30"
+                                                                            alt={sub.name}
+                                                                        />
+                                                                        {/* Tooltip */}
+                                                                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-black/80 text-white text-[10px] rounded opacity-0 group-hover/icon:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                                                            {sub.name}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </motion.div>
+                                                    )}
                                                 </div>
                                                 <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-300 group-hover:bg-purple-50 dark:group-hover:bg-purple-900/30 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                                                     <ArrowRight className="w-5 h-5 -rotate-45 group-hover:rotate-0 transition-transform duration-300" />

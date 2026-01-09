@@ -9,6 +9,12 @@ const CodeBlock = ({ code }: { code: string }) => (
     </div>
 );
 
+const CheckIndicator = () => (
+    <svg width="12" height="10" viewBox="0 0 12 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
 const DevelopersPage: React.FC = () => {
 
     const handleSeed = async () => {
@@ -99,10 +105,10 @@ const DevelopersPage: React.FC = () => {
 
                     <div className="relative">
                         <div className="absolute -inset-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl opacity-20 blur-xl"></div>
-                        <CodeBlock code={`import { MotherClient } from '@robotrna/sdk';
+                        <CodeBlock code={`import { MotherClient } from '@boraai/sdk';
 
 const client = new MotherClient({
-  apiKey: process.env.ROBOTRNA_KEY
+  apiKey: process.env.BORAAI_KEY
 });
 
 // Dispatch a complex task
@@ -159,10 +165,6 @@ console.log(result.insights);
     );
 };
 
-const CheckIndicator = () => (
-    <svg width="12" height="10" viewBox="0 0 12 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M1 5L4.5 8.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-);
+
 
 export default DevelopersPage;

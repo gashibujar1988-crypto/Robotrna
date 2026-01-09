@@ -26,3 +26,7 @@ dist-ssr
 _backups/
 dist/
 public_html/
+python_secrets.env
+backend_python/python_secrets.env
+__pycache__/
+*.pyc

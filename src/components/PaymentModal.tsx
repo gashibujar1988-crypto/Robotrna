@@ -129,7 +129,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, agentName,
                                                     />
                                                 </div>
                                                 <label htmlFor="terms" className="text-xs text-gray-500 cursor-pointer select-none leading-relaxed">
-                                                    Jag godkänner Robotrnas <button onClick={() => openTerms('terms')} className="text-purple-600 font-bold hover:underline">Allmänna Villkor</button> och <button onClick={() => openTerms('privacy')} className="text-purple-600 font-bold hover:underline">Integritetspolicy</button>. Jag förstår att tjänsten startar omedelbart.
+                                                    Jag godkänner Bora Ais <button onClick={() => openTerms('terms')} className="text-purple-600 font-bold hover:underline">Allmänna Villkor</button> och <button onClick={() => openTerms('privacy')} className="text-purple-600 font-bold hover:underline">Integritetspolicy</button>. Jag förstår att tjänsten startar omedelbart.
                                                 </label>
                                             </div>
 

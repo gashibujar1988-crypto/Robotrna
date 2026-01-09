@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, Mail, User, Phone, Globe, DollarSign, Send, CheckCircle, Loader2 } from 'lucide-react';
-import { functions } from '../firebase';
-import { httpsCallable } from 'firebase/functions';
+import { onSnapshot, doc } from 'firebase/firestore';
+import { n8n } from '../api/client';
+import { db } from '../firebase';
 
 interface Lead {
     name: string;
@@ -30,6 +31,103 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
     const [isGenerating, setIsGenerating] = useState(false);
     const [drafts, setDrafts] = useState<any[]>([]);
     const [showDrafts, setShowDrafts] = useState(false);
+    const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+
+    // --- MOCK ORACLE / N8N INTEGRATIONS ---
+
+    // 1. Simulate Polling Oracle for Drafts (Triggered by 'email_draft' appearing)
+    useEffect(() => {
+        let interval: any;
+        if (isGenerating && activeTaskId) {
+            interval = setInterval(async () => {
+                // Mock: Check GLOBAL_MEMORY_HUB WHERE task_id = activeTaskId AND data_type = 'email_draft'
+                console.log(`[Oracle] Polling for drafts (Task: ${activeTaskId})...`);
+
+                // Simulate finding drafts after 3 seconds
+                const mockDraftsFound = [
+                    {
+                        id: 'draft-1',
+                        emailTo: 'kontakt@technova.no',
+                        leadName: 'TechNova AS',
+                        subject: 'Samarbete kring AI-integration?',
+                        content: "Hej!\n\nJag såg er senaste lansering av 'FutureTech' – imponerande hastighet! 🚀\n\nPå Bora Ai hjälper vi bolag som TechNova att automatisera just den typen av workflows. Skulle ni vara öppna för en 15-min demo?\n\n/Hunter"
+                    },
+                    {
+                        id: 'draft-2',
+                        emailTo: 'vd@greenfuture.se',
+                        leadName: 'GreenFuture AB',
+                        subject: 'Effektivisering av er sälj-pipeline',
+                        content: "Hej Anders,\n\nLäste om ert hållbarhetsmål 2026. Vi har en lösning (Dexter) som kan frigöra 20h/vecka för säljteamet att fokusera på just det målet.\n\nHörs gärna,\nHunter"
+                    }
+                ];
+
+                if (mockDraftsFound.length > 0) {
+                    clearInterval(interval);
+                    setDrafts(mockDraftsFound);
+                    setIsGenerating(false);
+                    setShowDrafts(true); // AUTO-OPEN POPUP
+                }
+            }, 3000);
+        }
+        return () => clearInterval(interval);
+    }, [isGenerating, activeTaskId]);
+
+    const handleGenerateDrafts = async () => {
+        setIsGenerating(true);
+        const newTaskId = `task-${Date.now()}`;
+        setActiveTaskId(newTaskId);
+
+        try {
+            // Trigger n8n Dexter workflow
+            await n8n.triggerDexter(leads, newTaskId);
+
+            // Lyssna på resultat från Firestore
+            const unsubscribe = onSnapshot(
+                doc(db, 'n8n_results', newTaskId),
+                (docSnap) => {
+                    const data = docSnap.data();
+                    if (data && data.status === 'READY' && data.type === 'email_draft') {
+                        const parsedDrafts = data.payload?.drafts || [];
+                        setDrafts(parsedDrafts);
+                        setIsGenerating(false);
+                        setShowDrafts(true);
+                        unsubscribe();
+                    }
+                },
+                (error) => {
+                    console.error('Firestore listener error:', error);
+                    setIsGenerating(false);
+                }
+            );
+
+            // Timeout efter 2 minuter
+            setTimeout(() => {
+                if (isGenerating) {
+                    setIsGenerating(false);
+                    alert('Dexter tar längre tid än förväntat. Kolla igen om en stund.');
+                }
+            }, 120000);
+
+        } catch (error: any) {
+            console.error('Failed to trigger Dexter:', error);
+            alert(`Error: ${error.message}`);
+            setIsGenerating(false);
+        }
+    };
+
+    const handleConfirmSend = async () => {
+        // 1. Trigger Oracle Update: UPDATE STATUS = 'APPROVED'
+        console.log(`[Oracle] UPDATE GLOBAL_MEMORY_HUB SET status = 'APPROVED' WHERE task_id = '${activeTaskId}'`);
+
+        // 2. This DB change would auto-trigger the next n8n step (Send Email)
+        console.log(`[n8n] Trigger: Send Email Loop startad...`);
+
+        // UI Feedback
+        setShowDrafts(false);
+        setDexterSent(true);
+        setActiveTaskId(null); // Reset
+        setTimeout(() => setDexterSent(false), 5000);
+    };
 
     // --- ACTIONS ---
     const handleDownloadPDF = () => {
@@ -65,32 +163,6 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    };
-
-    const handleGenerateDrafts = async () => {
-        setIsGenerating(true);
-        try {
-            // Anropa Cloud Function som använder Dexter
-            const generateFn = httpsCallable(functions, 'generateDexterDrafts');
-            const res: any = await generateFn({ leads });
-
-            if (res.data && res.data.drafts) {
-                setDrafts(res.data.drafts);
-                setShowDrafts(true);
-            }
-        } catch (error) {
-            console.error("Dexter Error:", error);
-            alert("Kunde inte kontakta Dexter. Försök igen.");
-        } finally {
-            setIsGenerating(false);
-        }
-    };
-
-    const handleConfirmSend = () => {
-        setShowDrafts(false);
-        setDexterSent(true);
-        // Här skulle vi kalla på en 'sendEmails'-funktion i verkligheten
-        setTimeout(() => setDexterSent(false), 5000);
     };
 
     return (

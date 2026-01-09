@@ -624,20 +624,53 @@ const api = {
                     },
                     search_places: async ({ query }: any) => {
                         // HELPER: Generate Mock Data
-                        const generateFallbackData = () => {
+                        const generateFallbackData = (queryStr: string = "") => {
                             console.warn("Generating Fallback/Mock Data for Places");
+                            const lowerQ = queryStr.toLowerCase();
+
+                            // 1. Detect City
+                            let city = "Oslo";
+                            if (lowerQ.includes("bergen")) city = "Bergen";
+                            else if (lowerQ.includes("trondheim")) city = "Trondheim";
+                            else if (lowerQ.includes("stavanger")) city = "Stavanger";
+                            else if (lowerQ.includes("göteborg")) city = "Göteborg";
+                            else if (lowerQ.includes("stockholm")) city = "Stockholm";
+                            else if (lowerQ.includes("malmö")) city = "Malmö";
+                            else if (lowerQ.includes("strømmen") || lowerQ.includes("strommen")) city = "Strømmen";
+
+                            // 2. Detect Industry
+                            let industry = "Bus";
+                            if (lowerQ.includes("rørlegger") || lowerQ.includes("vvs")) industry = "Rørlegger";
+                            else if (lowerQ.includes("elektriker") || lowerQ.includes("el")) industry = "Elektro";
+                            else if (lowerQ.includes("snickare") || lowerQ.includes("bygg")) industry = "Bygg";
+                            else if (lowerQ.includes("redovisning") || lowerQ.includes("regnskap")) industry = "Regnskap";
+                            else if (lowerQ.includes("tandläkare") || lowerQ.includes("tannlege")) industry = "Tannlege";
+                            else if (lowerQ.includes("frisör") || lowerQ.includes("frisør")) industry = "Frisør";
+
                             const mockPlaces = Array.from({ length: 25 }, (_, i) => {
-                                const industries = ["Accounting", "Tech", "Construction", "Marketing", "Consulting"];
-                                const ind = industries[i % industries.length];
+                                const suffixes = ["AS", "Gruppen", "Partner", "Consulting", "Solutions", "Services"];
+                                const suffix = suffixes[i % suffixes.length];
+
+                                const streetNames: any = {
+                                    "Oslo": "Karl Johans gate",
+                                    "Bergen": "Bryggen",
+                                    "Trondheim": "Munkegata",
+                                    "Stavanger": "Kirkegata",
+                                    "Strømmen": "Strømsveien",
+                                    "Stockholm": "Vasagatan",
+                                    "Göteborg": "Avenyn"
+                                };
+                                const street = streetNames[city] || "Storgata";
+
                                 return {
-                                    name: `${ind} Solutions ${i + 1} AS`,
-                                    address: `Nydalsveien ${i * 2 + 10}, Oslo`,
-                                    rating: (3.0 + Math.random() * 2.0).toFixed(1), // Always > 3.0
-                                    link: `https://www.example-${ind.toLowerCase()}${i}.no`,
+                                    name: `${industry} ${["Nordic", "City", "Central", "Elite", "Pro", "Tech"][i % 6]} ${suffix}`,
+                                    address: `${street} ${i * 3 + 1}, ${city}`,
+                                    rating: (3.5 + Math.random() * 1.5).toFixed(1), // Always > 3.5
+                                    link: `https://www.example-${industry.toLowerCase()}${i}.no`,
                                     location: { lat: 59.9 + (i * 0.001), lng: 10.7 + (i * 0.001) },
                                     // Enriched Mock Fields
-                                    daglig_leder: ["Anders Svensson", "Lisa Berg", "Erik Haug", "Kari Nordmann"][i % 4],
-                                    email: `kontakt@company${i}.no`,
+                                    daglig_leder: ["Anders Svensson", "Lisa Berg", "Erik Haug", "Kari Nordmann", "Per Olsen"][i % 5],
+                                    email: `post@${industry.toLowerCase()}${i}.no`,
                                     phone: `+47 9${Math.floor(Math.random() * 10000000)}`
                                 };
                             });
@@ -665,11 +698,11 @@ const api = {
 
                             if (!res.ok) {
                                 console.warn(`Places API Error: ${res.status} ${res.statusText}`);
-                                return generateFallbackData(); // FALLBACK ON API ERROR
+                                return generateFallbackData(query); // FALLBACK ON API ERROR
                             }
 
                             const data = await res.json();
-                            if (!data.places || data.places.length === 0) return generateFallbackData(); // FALLBACK ON EMPTY
+                            if (!data.places || data.places.length === 0) return generateFallbackData(query); // FALLBACK ON EMPTY
 
                             // FILTER 1: Strict > 3.0 Rating
                             // FILTER 2: ONLY OPERATIONAL (Removes Closed/Konkurs)
@@ -681,7 +714,7 @@ const api = {
                             // If filter killed all results, fallback mainly to show SOMETHING (or show unfiltered?) -> Let's show fallback to ensure user gets leads.
                             if (filtered.length === 0 && data.places.length > 0) {
                                 console.warn("All places filtered out by rating < 3.0. Showing fallback.");
-                                return generateFallbackData();
+                                return generateFallbackData(query);
                             }
 
                             const mappedPlaces = filtered.map((p: any) => ({
@@ -706,7 +739,7 @@ const api = {
                             return JSON.stringify(mappedPlaces);
                         } catch (e: any) {
                             console.warn("Google Places API Exception", e);
-                            return generateFallbackData(); // FALLBACK ON EXCEPTION
+                            return generateFallbackData(query); // FALLBACK ON EXCEPTION
                         }
                     },
                     list_analytics_properties: async () => {
@@ -1484,6 +1517,42 @@ export const brain = {
         return { data: { success: true } };
     },
     listDocuments: async () => ({ data: [] })
+};
+
+// N8N Integration
+export const n8n = {
+    triggerMotherHive: async (task: string) => {
+        const { functions } = await import('../firebase');
+        const { httpsCallable } = await import('firebase/functions');
+        const trigger = httpsCallable(functions, 'n8nWebhookTrigger');
+        const taskId = `task-${Date.now()}`;
+        await trigger({ workflow: 'mother-hive', payload: { task, taskId } });
+        return taskId;
+    },
+
+    triggerSoshie: async (postType: string, content: string) => {
+        const { functions } = await import('../firebase');
+        const { httpsCallable } = await import('firebase/functions');
+        const trigger = httpsCallable(functions, 'n8nWebhookTrigger');
+        const taskId = `social-${Date.now()}`;
+        await trigger({ workflow: 'soshie', payload: { postType, content, taskId } });
+        return taskId;
+    },
+
+    triggerDexter: async (leads: any[], taskId: string) => {
+        const { functions } = await import('../firebase');
+        const { httpsCallable } = await import('firebase/functions');
+        const trigger = httpsCallable(functions, 'n8nWebhookTrigger');
+        await trigger({ workflow: 'dexter', payload: { leads, taskId } });
+    },
+
+    getSystemStatus: async () => {
+        const { functions } = await import('../firebase');
+        const { httpsCallable } = await import('firebase/functions');
+        const getStatus = httpsCallable(functions, 'getSystemStatus');
+        const result = await getStatus({});
+        return result.data;
+    }
 };
 
 export default api;

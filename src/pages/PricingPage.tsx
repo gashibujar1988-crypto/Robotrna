@@ -6,7 +6,7 @@ import PaymentModal from '../components/PaymentModal';
 // Import Robot Images for Visual Impact
 import robotSocial from '../assets/robot_social.png';
 
-import robotBusiness from '../assets/robot_business_green.jpg'; // Using the user uploaded image directly
+import robotBusiness from '../assets/robot_business_new.png'; // Updated to new uploaded image
 import robotAtlas from '../assets/robot_atlas_new.png'; // Using Atlas for the top tier
 import enterpriseBanner from '../assets/pricing_enterprise_banner.jpg';
 
@@ -74,7 +74,7 @@ const PricingPage: React.FC = () => {
 
     const handleSelectPlan = (plan: typeof plans[0]) => {
         if (plan.title === 'Empire') {
-            window.location.href = "mailto:sales@robotrna.se?subject=Enterprise Förfrågan - Robotrna";
+            window.location.href = "mailto:sales@boraai.se?subject=Enterprise Förfrågan - Bora Ai";
             return;
         }
         setSelectedPlan(plan);

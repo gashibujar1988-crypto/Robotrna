@@ -15,13 +15,13 @@ const TermsModal: React.FC<TermsModalProps> = ({ isOpen, onClose, type }) => {
     const content = type === 'terms' ? (
         <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
             <h4 className="font-bold text-white text-lg">1. Tjänstens Omfattning</h4>
-            <p>Robotrna tillhandahåller AI-baserade automationstjänster. Genom att prenumerera godkänner du att våra digitala agenter behandlar den data du tillhandahåller.</p>
+            <p>Bora Ai tillhandahåller AI-baserade automationstjänster. Genom att prenumerera godkänner du att våra digitala agenter behandlar den data du tillhandahåller.</p>
 
             <h4 className="font-bold text-white text-lg">2. Betalning & Prenumeration</h4>
             <p>Betalning sker månadsvis i förskott. Ingen bindningstid tillämpas om inget annat avtalats. Uppsägning kan ske när som helst och träder i kraft vid nästa periodskifte.</p>
 
             <h4 className="font-bold text-white text-lg">3. Ansvarsbegränsning</h4>
-            <p>Även om våra AI-agenter är avancerade, ansvarar Robotrna inte för direkta eller indirekta skador som uppstår till följd av deras handlingar eller beslut. Slutgsiltigt ansvar för publicerat material och affärsbeslut ligger hos kunden.</p>
+            <p>Även om våra AI-agenter är avancerade, ansvarar Bora Ai inte för direkta eller indirekta skador som uppstår till följd av deras handlingar eller beslut. Slutgsiltigt ansvar för publicerat material och affärsbeslut ligger hos kunden.</p>
 
             <h4 className="font-bold text-white text-lg">4. Tillgänglighet (SLA)</h4>
             <p>Vi strävar efter 99.9% upptid. Vid planerade driftstopp meddelas detta i förväg.</p>

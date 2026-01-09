@@ -1,9 +1,110 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Share2, Mic, Send, X, Image as ImageIcon, ChevronRight, Check, Search, Sparkles, Volume2, VolumeX, ArrowLeft } from 'lucide-react';
+import { Share2, Mic, Send, X, Image as ImageIcon, ChevronRight, Check, Search, Sparkles, Volume2, VolumeX, ArrowLeft, Activity, Download, Loader2 } from 'lucide-react';
 import { robots as robotsApi } from '../api/client';
 import { agents } from '../data/agents';
 import robotResearch from '../assets/robot_research.png';
+import ReactMarkdown from 'react-markdown';
+
+// --- SUB-COMPONENTS FOR PIXEL WORKFLOW ---
+
+const PixelProgressCard = () => {
+    const [progress, setProgress] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    return 100;
+                }
+                return prev + 2; // Increments to 100 in roughly 2.5-3 seconds
+            });
+        }, 50);
+        return () => clearInterval(interval);
+    }, []);
+
+    return (
+        <div className="w-full flex justify-end py-4">
+            <div className="bg-[#0f172a] p-4 rounded-xl border border-white/10 w-72 shadow-xl animate-in fade-in slide-in-from-bottom-4">
+                <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-white flex items-center gap-2">
+                        {progress < 100 ? (
+                            <Loader2 size={12} className="animate-spin text-purple-400" />
+                        ) : (
+                            <Check size={12} className="text-green-500" />
+                        )}
+                        {progress < 100 ? "Genererar Slides..." : "Generering Klar"}
+                    </span>
+                    <span className={`text-xs ${progress < 100 ? "text-purple-400 animate-pulse" : "text-green-400"}`}>{progress}%</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden mb-3">
+                    <div className="h-full bg-gradient-to-r from-purple-500 to-cyan-500 transition-all duration-100 ease-out" style={{ width: `${progress}%` }}></div>
+                </div>
+                <div className="space-y-1.5 opacity-80">
+                    <div className={`flex items-center gap-2 text-[10px] ${progress > 10 ? 'text-white' : 'text-gray-600'}`}>
+                        <Check size={10} className={progress > 10 ? "text-green-500" : "text-gray-600"} /> Layout Grid Applied
+                    </div>
+                    <div className={`flex items-center gap-2 text-[10px] ${progress > 50 ? 'text-white' : 'text-gray-600'}`}>
+                        <Check size={10} className={progress > 50 ? "text-green-500" : "text-gray-600"} /> Typography Sync
+                    </div>
+                    <div className={`flex items-center gap-2 text-[10px] ${progress > 90 ? 'text-white' : 'text-gray-600'}`}>
+                        <Check size={10} className={progress > 90 ? "text-green-500" : "text-gray-600"} /> Finalizing .pptx
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PixelDownloadCard = ({ downloadUrl }: { downloadUrl?: string }) => {
+    const handleDownload = () => {
+        if (downloadUrl) {
+            // Real Download from n8n
+            window.open(downloadUrl, '_blank');
+        } else {
+            // Fallback Simulation
+            const content = "Detta är en simulerad PowerPoint-fil genererad av Pixel Agent.\n\nSlide 1: Titel\nSlide 2: Agenda\n...";
+            const blob = new Blob([content], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "Strategy_Q1_2026.pptx";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    };
+
+    return (
+        <div className="w-full flex justify-end py-4 animate-in fade-in zoom-in duration-500">
+            <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] p-1 rounded-2xl border border-white/10 shadow-2xl max-w-sm">
+                <div className="bg-[#0f172a]/50 p-6 rounded-xl flex flex-col items-center text-center">
+                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mb-4 text-green-400 shadow-[0_0_30px_rgba(74,222,128,0.3)] ring-1 ring-green-500/50">
+                        <Check size={32} strokeWidth={3} />
+                    </div>
+                    <h3 className="text-white font-bold text-lg mb-1">Presentation Klar!</h3>
+                    <p className="text-slate-400 text-xs mb-6 px-4">Din presentation <span className="text-white font-mono bg-white/10 px-1 rounded">Strategy_Q1_2026.pptx</span> är redo för nedladdning.</p>
+
+                    <button
+                        onClick={handleDownload}
+                        className="w-full bg-white hover:bg-gray-100 text-black font-bold py-3 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 mb-3 shadow-lg shadow-white/10"
+                    >
+                        <Download size={18} />
+                        Ladda ner Presentation
+                    </button>
+
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                        Powered by n8n Server (Oracle Cloud)
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 import { useAuth } from '../context/AuthContext';
 import LeadsDrawer from '../components/LeadsDrawer';
 import InternalSupportDesk from '../components/InternalSupportDesk';
@@ -105,19 +206,20 @@ const RobotWorkspace: React.FC<RobotWorkspaceProps> = ({ propAgentId, onClose })
     useEffect(() => {
         const handleShowLeads = (e: any) => {
             if (e.detail && e.detail.places) {
-                // Enrich with mock data logic here as well to be safe
-                const enriched = e.detail.places.map((p: any) => ({
-                    ...p,
-                    daglig_leder: p.daglig_leder || "Ola Nordmann",
-                    phone: p.phone || "+47 22 33 44 55",
-                    email: p.email || `post@${p.name.replace(/\s+/g, '').toLowerCase()}.no`
-                }));
-                setLeadsData(enriched);
+                // USE REAL DATA ONLY
+                // If data is missing, we show it as missing, rather than mocking it.
+                setLeadsData(e.detail.places);
                 setShowLeadsDrawer(true);
             }
         };
         window.addEventListener('SHOW_MAP_RESULTS', handleShowLeads);
         return () => window.removeEventListener('SHOW_MAP_RESULTS', handleShowLeads);
+    }, []);
+
+    // --- DEXTER AUTOMATED POLLING REMOVED (NO MOCK DATA) ---
+    // Real polling will be implemented via Python Backend/WebSockets in Phase 4
+    useEffect(() => {
+        // Placeholder for future real-time status checks
     }, []);
 
     // Email GUI State
@@ -240,7 +342,9 @@ const RobotWorkspace: React.FC<RobotWorkspaceProps> = ({ propAgentId, onClose })
 
             if (found) setRobot(found);
 
-            setViewMode('chat');
+            if (found?.name === 'Soshie') setViewMode('social');
+            else if (found?.name === 'Nova') setViewMode('support');
+            else setViewMode('chat');
 
             if (googleToken) {
                 if (found?.name === 'Dexter') {
@@ -489,116 +593,212 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
         // Ensure we don't duplicate (some logic prevents it, but just in case)
         setMessages(prev => [...prev, userMsg]);
 
-        // Helper to detect intents
-        const hasKeyword = (words: string[]) => words.some(w => lower.includes(w));
+        // --- REAL PYTHON BACKEND INTEGRATION ---
+        try {
+            // 1. Show User Message (Optimistic UI) - Already done above
 
-        // 1. GLOBAL OVERRIDE CHECK (Mother Logic)
-        // Simulate Mother checking for conflicts (e.g. "Spend 1M on ads" -> Mother/Ledger objects)
-        if (text.includes('1 miljon') && robot.name === 'Soshie') {
-            const motherMsg = "⚠️ MOTHER INTERVENTION: @Soshie, vi har inte budget för detta. @Ledger, vänligen bekräfta. Task avvisad.";
-            speakMessage(motherMsg, 'Mother');
-            setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: text, timestamp: new Date() }, { id: (Date.now() + 1).toString(), sender: 'bot', text: motherMsg, timestamp: new Date(), agentName: 'Mother' }]);
+            // 2. Call Python Backend
+            // We use the same endpoint for all agents for now, Mother decodes who keeps context
+            const response = await fetch('http://localhost:8000/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: text,
+                    agent_name: robot.name // Pass agent name to backend
+                })
+            });
+
+            if (!response.ok) throw new Error("Backend connection failed");
+
+            const data = await response.json();
+
+            // 3. Show AI Response
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                sender: 'bot',
+                text: data.response, // The raw text from Mother/Gemini
+                timestamp: new Date(),
+                agentName: robot.name
+            }]);
+
+            // Optional: Speak response
+            if (isSoundEnabled) speakMessage(data.response, robot.name);
+
+        } catch (error) {
+            console.error("Error talking to Python Backend:", error);
+            // Fallback error message in chat
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                sender: 'system',
+                text: "⚠️ Tappade kontakten med Mother Brain (localhost:8000). Är servern igång?",
+                timestamp: new Date(),
+                isSystem: true
+            }]);
+        }
+
+        setLoading(false);
+        return; // EXIT FUNCTION HERE (Skip all old mock logic)
+
+        // --- THEME SELECTION HANDLER ---
+        if (robot.name === 'Pixel' && lower.includes('jag väljer temat:')) {
+            const selectedTheme = lower.split('jag väljer temat:')[1].trim();
+            setLoading(true);
+
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                sender: 'bot',
+                text: `Utmärkt val! **${selectedTheme}** kommer ge en stark proffsig känsla.\n\nHär är en förhandsvisning på titelsliden baserat på din nuvarande data:`,
+                timestamp: new Date(),
+                agentName: 'Pixel'
+            }]);
+
+            await new Promise(r => setTimeout(r, 2000));
+
+            setMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                sender: 'system',
+                text: 'PIXEL_SLIDE_PREVIEW',
+                meta: {
+                    theme: selectedTheme,
+                    variant: Math.floor(Math.random() * 3) + 1 // Add Random Variation (1-3)
+                },
+                timestamp: new Date(),
+                agentName: 'Pixel'
+            }]);
+
+            setLoading(false);
+            actionTriggered = true;
             return;
         }
 
-        // 2. GET CURRENT AGENT PERSONA (The "Brain")
-        const persona = AGENT_PERSONAS[robot.name] || AGENT_PERSONAS['default'];
+        // --- PRESENTATION EXPORT HANDLER (PRIORITY HIGH) ---
+        if (robot.name === 'Pixel' && (hasKeyword(['gå vidare', 'kör', 'kør', 'kjør', 'skapa', 'lag', 'gör klart', 'exportera', 'spara', 'ladda ner', 'fint', 'bra', 'yes', 'japp', 'start']))) {
+            setLoading(true);
 
-        // --- MOTHER HIVE-MIND ORCHESTRATION LAYER ---
-        // --- MOTHER HIVE-MIND ORCHESTRATION LAYER (REASONING ENGINE) ---
-        if (robot.name === 'Mother' && !hasKeyword(['mail', 'möte'])) {
+            // 1. Acknowledge
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                sender: 'bot',
+                text: "Uppfattat! Jag låser designen och kör igång. 🔒\n\nJag genererar nu hela däckstrukturen (10 slides), applicerar temat på alla slides och förbereder PPTX-filen...",
+                timestamp: new Date(),
+                agentName: 'Pixel'
+            }]);
 
-            // PHASE 1: SEMANTIC INTENT ANALYSIS
-            setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: "🧠 **Analys:** Bryter ner prompt till entiteter & intentioner...", timestamp: new Date(), agentName: 'System', isSystem: true }]);
-            await new Promise(r => setTimeout(r, 1200));
+            await new Promise(r => setTimeout(r, 2000));
 
-            // PHASE 2: TASK GRAPH GENERATION (Dependency Mapping)
-            // Simulating a DAG (Directed Acyclic Graph) creation
-            const taskGraph = "📉 **Task Graph:** [Ledger: Budget] ➔ [Venture: ROI-Check] ➔ [Atlas: Execution]";
-            setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: taskGraph, timestamp: new Date(), agentName: 'System', isSystem: true }]);
-            await new Promise(r => setTimeout(r, 1500));
+            // 2. Progress Bar
+            setMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                sender: 'system',
+                text: 'PIXEL_EXPORT_PROGRESS',
+                timestamp: new Date(),
+                agentName: 'Pixel'
+            }]);
 
-            // PHASE 3: THE DEBATE (Self-Correction Loop)
-            // Trigger a simulated internal conflict to show "Reasoning" capability
-            const debateSteps = [
-                "🏛️ **Venture (Affärsrisk):** Vänta, budgeten för Q4 är låst. @Ledger, kan vi frigöra kapital?",
-                "⚖️ **Ledger (Audit):** Negativt. MEN... om Atlas kör 'Serverless' sparar vi 30% driftkostnad. Godkänner ni?",
-                "🛠️ **Atlas (Tech):** Accepterat. Jag optimerar arkitekturen för Serverless. Kör."
-            ];
+            // 3. Call n8n Webhook (Real backend)
+            try {
+                // Determine theme from history or default
+                const theme = 'modern tech';
 
-            for (const step of debateSteps) {
-                setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: step, timestamp: new Date(), agentName: 'System', isSystem: true }]);
-                await new Promise(r => setTimeout(r, 1400));
+                const response = await fetch('http://79.76.41.134:5678/webhook/presentation-generator', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        theme: theme,
+                        slides: 10,
+                        user: 'Gashi',
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server responded with ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 4. Completion
+                setMessages(prev => [...prev, {
+                    id: (Date.now() + 2).toString(),
+                    sender: 'system',
+                    text: 'PIXEL_EXPORT_COMPLETE',
+                    meta: { downloadUrl: data.downloadUrl },
+                    timestamp: new Date(),
+                    agentName: 'Pixel'
+                }]);
+
+            } catch (error) {
+                console.error("n8n Connection Error:", error);
+                setMessages(prev => [...prev, {
+                    id: Date.now().toString(),
+                    sender: 'bot',
+                    text: "⚠️ Kunde inte nå n8n-servern. Kontrollera att workflowet är satt till **Active** i n8n-panelen.",
+                    timestamp: new Date(),
+                    agentName: 'Pixel'
+                }]);
             }
 
-            // PHASE 4: CONFLICT RESOLUTION (Mother Synthesis)
-            setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: "✅ **Mother:** Konflikt löst. Ny strategi: 'Low-Cost Scalability'. Genererar handlingsplan...", timestamp: new Date(), agentName: 'System', isSystem: true }]);
-            await new Promise(r => setTimeout(r, 1500));
-        }
-
-        // --- OLD LOGIC DISABLED ---
-        if (false && robot.name === 'Mother' && !hasKeyword(['mail', 'möte'])) {
-            // Step 1: Mother Analysis
-            setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: "🧠 *Mother analyserar förfrågan...*", timestamp: new Date(), agentName: 'System', isSystem: true }]);
-            await new Promise(r => setTimeout(r, 1500));
-
-            // Step 2: Parallel Expert Execution (Simulation)
-            const thoughts = [
-                "📊 Venture: Utvärderar strategisk 'fit' & ROI...",
-                "🛠️ Atlas: Kollar teknisk genomförbarhet...",
-                "⚖️ Ledger: Granskar budgetramar..."
-            ];
-
-            // Display thoughts sequentially to simulate parallel work processing
-            for (const thought of thoughts) {
-                setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: thought, timestamp: new Date(), agentName: 'System', isSystem: true }]);
-                await new Promise(r => setTimeout(r, 800));
-            }
-
-            // Step 3: Conflict Resolution
-            setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: "🔄 Mother: Syntetiserar data & löser konflikter...", timestamp: new Date(), agentName: 'System', isSystem: true }]);
-            await new Promise(r => setTimeout(r, 1500));
-
-            // Step 4: Final Output Generation (is handled by the standard response generation below, but we can pre-seed/override it)
-            // We'll let the standard logic pick up the 'final' text, but we override it here if we want a specific result.
-            // For now, allow the loop to continue to "INTELLIGENT RESPONSE GENERATION" but Mother needs a special case there.
-        }
-
-        // 3. HANDLE OPEN DRAFTS (Intercept ONLY specific commands)
-        if (emailDraft && emailDraft.visible) {
-            // Check for immediate commands
-            if (lower.includes('skicka') && !lower.includes('skriv')) { // "Skicka" but not "Skriv att jag vill skicka"
-                const msg: Message = { id: Date.now().toString(), sender: 'user', text: text, timestamp: new Date() };
-                setMessages(prev => [...prev, msg]);
-                handleSendMail();
-                return;
-            }
-            if (lower.includes('avbryt') || lower.includes('stäng')) {
-                const msg: Message = { id: Date.now().toString(), sender: 'user', text: text, timestamp: new Date() };
-                setMessages(prev => [...prev, msg]);
-                setEmailDraft(null);
-                return;
-            }
-            // For everything else (content, recipient changes), FALL THROUGH to the AI.
-            // The AI will use the [[ACTION:GMAIL_DRAFT]] tag to update the UI.
-        }
-
-        // 4. INTELLIGENT RESPONSE GENERATION (Simulated Hive-Mind)
-        let responseText = '';
-        let actionTriggered = false;
-
-        // A. CONTEXT MEMORY CHECK
-        if (conversationContext === 'atlas_awaiting_lead_confirm' && hasKeyword(['ja', 'kör', 'do it'])) {
-            // ... [Atlas Logic from before] ...
-            responseText = "Utmärkt! Jag startar sökrobotarna... 🚀\n\n*Hittade 2 bolag.*\nSka jag importera till CRM?";
-            setConversationContext('atlas_awaiting_crm_add');
+            setLoading(false);
             actionTriggered = true;
+            return;
         }
-        else if (conversationContext === 'atlas_awaiting_crm_add' && hasKeyword(['ja', 'import'])) {
-            handleAddTask('Importera leads', ['TechNova', 'GreenFuture']);
-            responseText = "Klart! ✅ Leads sparade.";
-            setConversationContext(null);
+
+        // --- CUSTOM THEME / STYLE DESCRIPTION HANDLER (LOWER PRIORITY) ---
+        if (robot.name === 'Pixel' && (hasKeyword(['svart', 'vit', 'röd', 'blå', 'grön', 'färg', 'stil', 'layout', 'design', 'modern', 'klassisk', 'betong', 'stål', 'trä', 'glas', 'minimalistisk']))) {
+            setLoading(true);
+
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                sender: 'bot',
+                text: `Jag förstår precis! 🎨\n\nDu är ute efter en specifik look: **"${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"**.\n\nJag har skapat en unik layout-mall baserad på dina preferenser:`,
+                timestamp: new Date(),
+                agentName: 'Pixel'
+            }]);
+
+            await new Promise(r => setTimeout(r, 2000));
+
+            setMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                sender: 'system',
+                text: 'PIXEL_SLIDE_PREVIEW',
+                meta: {
+                    theme: 'creative', // Mapped to creative to allow for visual impact in the mockup
+                    variant: 3 // A specific variant that looks premium
+                },
+                timestamp: new Date(),
+                agentName: 'Pixel'
+            }]);
+
+            setLoading(false);
             actionTriggered = true;
+            return;
+        }
+
+        if (robot.name === 'Venture' && (hasKeyword(['pitch', 'deck', 'investerare']))) {
+            setLoading(true);
+
+            setMessages(prev => [...prev, {
+                id: Date.now().toString(),
+                sender: 'bot',
+                text: "Okej, vi pratar pengar. 💼 För att få en investerare på kroken måste vi ha en knivskarp berättelse.\n\nHär är min föreslagna struktur för ditt **10-Slide Deck**:",
+                timestamp: new Date(),
+                agentName: 'Venture'
+            }]);
+
+            await new Promise(r => setTimeout(r, 1500));
+
+            // 3. Structure Card
+            setMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                sender: 'system',
+                text: 'VENTURE_PITCH_STRUCTURE',
+                timestamp: new Date(),
+                agentName: 'Venture'
+            }]);
+
+            setLoading(false);
+            actionTriggered = true;
+            return;
         }
 
         // D. PIXEL "BACKEND" LOGIC (Simulated Intelligence)
@@ -886,6 +1086,67 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
             }
         }
 
+
+        // --- HUNTER SPECIFIC: AUTO-OPEN LEADS DRAWER ---
+        // If Hunter responds with a list of companies, parse them and open the drawer
+        if ((robot.name === 'Hunter' || robot.name === 'Sales') && (responseText.includes('**Selskap:**') || responseText.includes('1. **'))) {
+            try {
+                const newLeads: any[] = [];
+                // Simple parser for the standard Hunter format
+                const items = responseText.split(/\n\n/); // Split by paragraphs first
+
+                items.forEach(item => {
+                    if (item.includes('**Selskap:**')) {
+                        const nameMatch = item.match(/\*\*Selskap:\*\*\s*(.*?)(\n|$)/);
+                        const linkMatch = item.match(/Hjemmeside:\*\*\s*\[?.*?\]?\(?(http[^\)\s]+)\)?/);
+                        // Clean up name (remove numbering if present inside capture)
+                        let name = nameMatch ? nameMatch[1].trim() : '';
+
+                        if (name) {
+                            newLeads.push({
+                                name: name,
+                                link: linkMatch ? linkMatch[1] : '',
+                                address: "Identifierad via Hunter",
+                                daglig_leder: "Se Proff.no",
+                                phone: "Se Hemsida",
+                                email: "kontakt@" + name.split(' ')[0].toLowerCase().replace(/[^a-z0-9]/g, '') + ".no",
+                                rating: 4.8
+                            });
+                        }
+                    }
+                });
+
+                // Fallback: If regex failed but text looks like a list, try line-by-line
+                if (newLeads.length === 0) {
+                    const lines = responseText.split('\n');
+                    let currentLead: any = {};
+                    lines.forEach(line => {
+                        if (line.includes('**Selskap:**')) {
+                            if (currentLead.name) newLeads.push(currentLead);
+                            currentLead = {
+                                name: line.split('**Selskap:**')[1].trim(),
+                                address: "Bergen/Region",
+                                rating: 4.5
+                            };
+                        }
+                        if (line.includes('Hjemmeside:') && currentLead.name) {
+                            const url = line.match(/\((http.*?)\)/);
+                            if (url) currentLead.link = url[1];
+                        }
+                    });
+                    if (currentLead.name) newLeads.push(currentLead);
+                }
+
+                if (newLeads.length > 0) {
+                    console.log("Auto-opening Leads Drawer with:", newLeads);
+                    setLeadsData(newLeads);
+                    setShowLeadsDrawer(true);
+                }
+            } catch (e) {
+                console.error("Failed to parse Hunter leads", e);
+            }
+        }
+
         // 5. UPDATE UI (Bot Response Only - User msg already added)
         const botMsg: Message = { id: (Date.now() + 1).toString(), sender: 'bot', text: responseText, timestamp: new Date(), agentName: robot.name };
 
@@ -1016,6 +1277,32 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                                     className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${viewMode === 'social' ? 'bg-pink-500 text-white shadow-lg' : 'text-white/50 hover:text-white'}`}
                                 >
                                     SOCIAL INBOX
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ACTION BUTTON - ONLY FOR PIXEL */}
+                        {robot.name === 'Pixel' && (
+                            <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
+                                <button
+                                    onClick={() => processMessage("Jag vill skapa en professionell PowerPoint-presentation. Kan du hjälpa mig med layout och bilder? 🎨")}
+                                    className="px-4 py-1.5 rounded-md text-xs font-bold transition-all bg-purple-600 text-white shadow-lg hover:bg-purple-500 flex items-center gap-2"
+                                >
+                                    <Sparkles size={14} />
+                                    SKAPA PRESENTATION
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ACTION BUTTON - ONLY FOR VENTURE */}
+                        {robot.name === 'Venture' && (
+                            <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
+                                <button
+                                    onClick={() => processMessage("Jag behöver hjälp med en Pitch Deck och affärsstrategi. 📊")}
+                                    className="px-4 py-1.5 rounded-md text-xs font-bold transition-all bg-emerald-600 text-white shadow-lg hover:bg-emerald-500 flex items-center gap-2"
+                                >
+                                    <Sparkles size={14} />
+                                    NY PITCH DECK
                                 </button>
                             </div>
                         )}
@@ -1295,6 +1582,215 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                                                 );
                                             }
 
+                                            // RENDERER: PIXEL THEME SELECTOR
+                                            else if (msg.sender === 'system' && msg.text === 'PIXEL_THEME_SELECTOR') {
+                                                return (
+                                                    <div key={msg.id} className="w-full flex flex-col items-end py-4 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                                        <div className="bg-[#0f172a] p-6 rounded-2xl shadow-2xl border border-white/10 max-w-xl w-full">
+                                                            <div className="flex justify-between items-center mb-6">
+                                                                <h3 className="text-white font-bold flex items-center gap-2">
+                                                                    <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
+                                                                    Välj Designspråk
+                                                                </h3>
+                                                                <span className="text-[10px] text-purple-300 bg-purple-500/10 px-2 py-1 rounded border border-purple-500/20">STEG 1 AV 3</span>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-3">
+                                                                {[
+                                                                    { id: 'modern', label: 'Modern Tech', color: 'from-blue-600 to-cyan-500' },
+                                                                    { id: 'creative', label: 'Creative Pop', color: 'from-pink-500 to-orange-400' },
+                                                                    { id: 'corporate', label: 'Corporate', color: 'from-slate-700 to-slate-900' }
+                                                                ].map(theme => (
+                                                                    <button key={theme.id} onClick={() => processMessage(`Jag väljer temat: ${theme.label}`)} className="group relative h-24 rounded-xl overflow-hidden border border-white/10 hover:border-white/50 transition-all active:scale-95">
+                                                                        <div className={`absolute inset-0 bg-gradient-to-br ${theme.color} opacity-40 group-hover:opacity-100 transition-opacity`}></div>
+                                                                        <div className="absolute inset-0 flex items-center justify-center font-bold text-xs text-white z-10">{theme.label}</div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            // RENDERER: PIXEL SLIDE PREVIEW (MOCKUP)
+                                            else if (msg.sender === 'system' && msg.text === 'PIXEL_SLIDE_PREVIEW') {
+                                                const theme = msg.meta?.theme || 'modern tech';
+                                                const variant = msg.meta?.variant || 1;
+
+                                                // Dynamic Styles based on Variant
+                                                const getBg = () => {
+                                                    if (theme.includes('creative')) return variant === 1 ? 'bg-[#FFDE59]' : variant === 2 ? 'bg-[#FF0055]' : 'bg-[#8B5CF6]';
+                                                    if (theme.includes('corporate')) return variant === 1 ? 'bg-white' : variant === 2 ? 'bg-[#F1F5F9]' : 'bg-[#0F172A]';
+                                                    return variant === 1 ? 'bg-slate-900' : variant === 2 ? 'bg-white' : 'bg-black';
+                                                };
+
+                                                const bgClass = getBg();
+
+                                                return (
+                                                    <div key={msg.id} className="w-full flex flex-col items-end py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                                        <div className="bg-[#1e1e1e] p-2 rounded-xl border border-white/10 max-w-2xl w-full shadow-2xl">
+                                                            {/* PowerPoint Toolbar Mockup */}
+                                                            <div className="flex items-center gap-4 px-4 py-2 border-b border-white/5 mb-2">
+                                                                <div className="flex gap-1.5">
+                                                                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                                                                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                                                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                                                                </div>
+                                                                <span className="text-[10px] text-white/30 font-sans mx-auto">Design_Variant_{variant}.pptx</span>
+                                                            </div>
+
+                                                            {/* THE CANVAS */}
+                                                            <div className={`aspect-video w-full relative overflow-hidden rounded-lg shadow-inner ${bgClass}`}>
+
+                                                                {/* --- CREATIVE THEMES --- */}
+                                                                {theme.includes('creative') && (
+                                                                    <>
+                                                                        {variant === 1 && ( // Yellow brutalism
+                                                                            <div className="h-full w-full p-12 flex flex-col justify-center text-black relative">
+                                                                                <div className="absolute top-0 right-0 w-64 h-full bg-black skew-x-12 translate-x-12"></div>
+                                                                                <h1 className="text-5xl font-black mb-4 uppercase tracking-tighter relative z-10">Future <br />Vision.</h1>
+                                                                                <div className="h-2 w-24 bg-black mb-6"></div>
+                                                                                <p className="font-bold relative z-10">Q1 STRATEGY DECK</p>
+                                                                            </div>
+                                                                        )}
+                                                                        {variant === 2 && ( // Pink Pop Art
+                                                                            <div className="h-full w-full flex items-center justify-center relative bg-[#FF0055]">
+                                                                                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%,transparent_100%)] bg-[length:20px_20px]"></div>
+                                                                                <div className="bg-white border-4 border-black p-8 shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] transform -rotate-3">
+                                                                                    <h1 className="text-4xl font-black text-black uppercase italic">Think<br />Different</h1>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {variant === 3 && ( // Purple Gradient Glass
+                                                                            <div className="h-full w-full flex flex-col items-center justify-center relative bg-gradient-to-br from-violet-600 to-indigo-900 text-white">
+                                                                                <div className="absolute w-96 h-96 bg-pink-500/30 blur-[100px] rounded-full top-[-50%] left-[-20%]"></div>
+                                                                                <h1 className="text-6xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-pink-200 mb-2">NOVA</h1>
+                                                                                <p className="text-sm font-light tracking-[0.5em] uppercase opacity-80">Collection 2026</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                )}
+
+                                                                {/* --- CORPORATE THEMES --- */}
+                                                                {theme.includes('corporate') && (
+                                                                    <>
+                                                                        {variant === 1 && ( // Classic Blue/White
+                                                                            <div className="h-full w-full p-12 flex flex-col justify-between text-slate-800 bg-white">
+                                                                                <div className="border-l-4 border-blue-900 pl-8 mt-10">
+                                                                                    <h1 className="text-4xl font-serif font-medium mb-2 text-slate-900">Growth Initiative</h1>
+                                                                                    <p className="text-slate-500">Quarterly Business Review</p>
+                                                                                </div>
+                                                                                <div className="w-full h-px bg-slate-200 flex justify-between pt-2">
+                                                                                    <span className="text-[9px]">Confidential</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {variant === 2 && ( // Modern Grey
+                                                                            <div className="h-full w-full p-12 relative bg-[#F1F5F9] text-slate-800">
+                                                                                <div className="absolute top-0 left-0 w-32 h-full bg-slate-800"></div>
+                                                                                <div className="ml-24 h-full flex flex-col justify-center">
+                                                                                    <h1 className="text-5xl font-bold tracking-tight text-slate-900 mb-4">Market<br />Analysis</h1>
+                                                                                    <div className="w-16 h-1 bg-emerald-500"></div>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {variant === 3 && ( // Dark Premium
+                                                                            <div className="h-full w-full p-12 relative bg-[#0F172A] text-white flex items-center">
+                                                                                <div className="w-1/2">
+                                                                                    <span className="text-emerald-400 font-mono text-xs mb-4 block">/// Q1_REPORT_FINAL</span>
+                                                                                    <h1 className="text-4xl font-bold leading-tight mb-6">Sustainable<br />Infrastructure</h1>
+                                                                                    <button className="px-4 py-2 border border-white/20 rounded text-xs hover:bg-white/10">Read More</button>
+                                                                                </div>
+                                                                                <div className="absolute right-0 top-0 h-full w-1/3 bg-emerald-900/20 backdrop-blur-sm border-l border-white/5"></div>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                )}
+
+                                                                {/* --- MODERN TECH THEMES --- */}
+                                                                {(!theme.includes('creative') && !theme.includes('corporate')) && (
+                                                                    <>
+                                                                        {variant === 1 && ( // Standard Dark/Cyan
+                                                                            <div className="h-full w-full relative flex items-center bg-slate-900">
+                                                                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(56,189,248,0.1),transparent)]"></div>
+                                                                                <div className="w-1/2 p-12 relative z-10">
+                                                                                    <div className="inline-block px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold mb-6">AI-DRIVEN</div>
+                                                                                    <h1 className="text-4xl font-bold text-white mb-4 leading-tight">Next Gen <span className="text-cyan-400">Tech</span></h1>
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+                                                                        {variant === 2 && ( // SaaS Clean White
+                                                                            <div className="h-full w-full relative flex items-center justify-center bg-white text-black">
+                                                                                <div className="text-center z-10">
+                                                                                    <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-6 shadow-xl shadow-blue-200"></div>
+                                                                                    <h1 className="text-4xl font-black tracking-tight mb-2">Simplify.</h1>
+                                                                                    <p className="text-gray-500">The platform for modern teams.</p>
+                                                                                </div>
+                                                                                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-gray-50 to-transparent"></div>
+                                                                            </div>
+                                                                        )}
+                                                                        {variant === 3 && ( // Orange/Black Industrial
+                                                                            <div className="h-full w-full relative p-10 bg-black text-white flex flex-col justify-between">
+                                                                                <div className="border-t-2 border-orange-500 w-32 pt-4">
+                                                                                    <span className="font-mono text-orange-500 text-xs">V.2.0.4</span>
+                                                                                </div>
+                                                                                <h1 className="text-5xl font-bold uppercase">Heavy<br /><span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">Industry</span></h1>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                )}
+
+                                                            </div>
+                                                            <div className="flex justify-between items-center mt-3 px-2">
+                                                                <span className="text-[10px] text-white/40 italic">*Detta är en preview. n8n krävs för export.*</span>
+                                                                <button onClick={() => processMessage("Jag vill ändra designstil tack")} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded transition flex items-center gap-2 cursor-pointer shadow-lg hover:bg-white/30">
+                                                                    <Activity size={12} />
+                                                                    Justera Design
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            // RENDERER: PIXEL EXPORT PROGRESS
+                                            else if (msg.sender === 'system' && msg.text === 'PIXEL_EXPORT_PROGRESS') {
+                                                return <PixelProgressCard key={msg.id} />;
+                                            }
+                                            // RENDERER: PIXEL EXPORT COMPLETE
+                                            else if (msg.sender === 'system' && msg.text === 'PIXEL_EXPORT_COMPLETE') {
+                                                const downloadUrl = msg.meta?.downloadUrl;
+                                                return <PixelDownloadCard key={msg.id} downloadUrl={downloadUrl} />;
+                                            }
+                                            // RENDERER: VENTURE PITCH STRUCTURE
+                                            else if (msg.sender === 'system' && msg.text === 'VENTURE_PITCH_STRUCTURE') {
+                                                return (
+                                                    <div key={msg.id} className="w-full flex flex-col items-end py-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                                        <div className="bg-[#064e3b] p-6 rounded-2xl shadow-2xl border border-emerald-500/30 max-w-xl w-full relative overflow-hidden">
+                                                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 blur-[60px] rounded-full pointer-events-none"></div>
+                                                            <h3 className="text-emerald-100 font-bold mb-4 flex items-center gap-2">
+                                                                <div className="w-6 h-6 rounded bg-emerald-800 flex items-center justify-center border border-emerald-600"><span className="text-xs">1</span></div>
+                                                                10-Slide Investor Deck
+                                                            </h3>
+                                                            <div className="space-y-2 mb-6">
+                                                                {[
+                                                                    "1. The Problem (Pain Point)",
+                                                                    "2. The Solution (Your Product)",
+                                                                    "3. Market Opportunity (TAM/SAM/SOM)",
+                                                                    "4. Business Model (Monetization)",
+                                                                    "5. Traction & Roadmap"
+                                                                ].map((step, i) => (
+                                                                    <div key={i} className="flex items-center gap-3 text-emerald-200/80 text-sm p-2 rounded hover:bg-emerald-900/40 transition-colors cursor-pointer border border-transparent hover:border-emerald-500/20">
+                                                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                                                                        {step}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            <button onClick={() => processMessage("Godkänn strukturen och börja skriv")} className="w-full py-3 bg-white text-emerald-900 font-bold rounded-lg hover:bg-emerald-50 transition shadow-lg">
+                                                                Godkänn & Börja Skriva
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+
                                             // 2. STANDARD MESSAGES
                                             return (
                                                 <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -1302,7 +1798,20 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                                                         {msg.agentName && msg.sender === 'bot' && (
                                                             <p className="text-[10px] font-bold text-white/40 mb-1 uppercase tracking-wider">{msg.agentName}</p>
                                                         )}
-                                                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                                                        <div className={`text-sm leading-relaxed markdown-content ${msg.sender === 'user' ? 'prose-sm' : 'prose-invert'}`}>
+                                                            <ReactMarkdown
+                                                                components={{
+                                                                    a: ({ node, ...props }) => <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noopener noreferrer" />,
+                                                                    ul: ({ node, ...props }) => <ul {...props} className="list-disc ml-4 my-2" />,
+                                                                    ol: ({ node, ...props }) => <ol {...props} className="list-decimal ml-4 my-2" />,
+                                                                    li: ({ node, ...props }) => <li {...props} className="mb-1" />,
+                                                                    p: ({ node, ...props }) => <p {...props} className="mb-2 last:mb-0" />,
+                                                                    strong: ({ node, ...props }) => <strong {...props} className="font-bold" />
+                                                                }}
+                                                            >
+                                                                {msg.text}
+                                                            </ReactMarkdown>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             );
@@ -1467,16 +1976,18 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
             />
 
             {/* Re-open trigger if closed but has data */}
-            {!showLeadsDrawer && leadsData.length > 0 && (
-                <button
-                    onClick={() => setShowLeadsDrawer(true)}
-                    className="fixed bottom-24 right-10 z-50 bg-cyan-500 text-white p-4 rounded-full shadow-lg hover:bg-cyan-400 transition-colors font-bold flex items-center gap-2 animate-bounce"
-                >
-                    <Search className="w-5 h-5" />
-                    Visa Leads ({leadsData.length})
-                </button>
-            )}
-        </ErrorBoundary>
+            {
+                !showLeadsDrawer && leadsData.length > 0 && (
+                    <button
+                        onClick={() => setShowLeadsDrawer(true)}
+                        className="fixed bottom-24 right-10 z-50 bg-cyan-500 text-white p-4 rounded-full shadow-lg hover:bg-cyan-400 transition-colors font-bold flex items-center gap-2 animate-bounce"
+                    >
+                        <Search className="w-5 h-5" />
+                        Visa Leads ({leadsData.length})
+                    </button>
+                )
+            }
+        </ErrorBoundary >
     );
 };
 export default RobotWorkspace;

@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ArrowRight, Activity, Calendar, Bot,
-    Settings, X, Check, TrendingUp, Clock, MessageSquarePlus, Car, Users,
-    Sparkles, Search, Zap, Bell
+    Settings, X, Check, TrendingUp, MessageSquarePlus, Users, Clock,
+    Sparkles, Search, Zap, Bell, Network
 } from 'lucide-react';
+import SystemStatusPanel from '../components/SystemStatusPanel';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { agents } from '../data/agents';
@@ -27,19 +28,27 @@ const StatCard = ({ icon: Icon, label, value, color, delay }: any) => (
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.5 }}
-        className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-gray-100/50 dark:border-gray-700 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group"
+        className="relative bg-white dark:bg-gray-800/80 rounded-3xl p-6 shadow-[0_4px_30px_-4px_rgba(0,0,0,0.08)] border border-gray-100/50 dark:border-gray-700/50 hover:shadow-2xl hover:-translate-y-2 transition-all duration-500 group overflow-hidden card-shine"
     >
-        <div className="flex items-start justify-between mb-4">
-            <div className={`p-3 rounded-2xl ${color} bg-opacity-10 dark:bg-opacity-20 text-${color.split('-')[1]}-600 dark:text-${color.split('-')[1]}-400 group-hover:scale-110 transition-transform duration-300`}>
-                <Icon className="w-6 h-6" />
+        {/* Gradient overlay on hover */}
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+        <div className="relative z-10">
+            <div className="flex items-start justify-between mb-4">
+                <div className={`p-3.5 rounded-2xl ${color} bg-opacity-10 dark:bg-opacity-20 text-${color.split('-')[1]}-600 dark:text-${color.split('-')[1]}-400 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 shadow-lg shadow-${color.split('-')[1]}-500/10`}>
+                    <Icon className="w-6 h-6" />
+                </div>
+                <motion.span
+                    className="flex items-center text-xs font-bold text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-400 px-3 py-1.5 rounded-full backdrop-blur-sm"
+                    whileHover={{ scale: 1.05 }}
+                >
+                    <TrendingUp className="w-3 h-3 mr-1" /> +12%
+                </motion.span>
             </div>
-            <span className="flex items-center text-xs font-bold text-green-500 bg-green-50 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full">
-                <TrendingUp className="w-3 h-3 mr-1" /> +12%
-            </span>
-        </div>
-        <div>
-            <div className="text-gray-400 text-sm font-medium mb-1 tracking-wide">{label}</div>
-            <div className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">{value}</div>
+            <div>
+                <div className="text-gray-400 text-sm font-medium mb-1.5 tracking-wide uppercase">{label}</div>
+                <div className="text-4xl font-black text-gray-900 dark:text-white tracking-tight bg-clip-text">{value}</div>
+            </div>
         </div>
     </motion.div>
 );
@@ -49,10 +58,44 @@ import { httpsCallable } from 'firebase/functions';
 import { doc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
 import TeamGreetingModal from '../components/TeamGreetingModal';
 import BrainFeed from '../components/BrainFeed';
+import LiveLog from '../components/LiveLog';
+import SocialDraftWidget from '../components/SocialDraftWidget';
 
 const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const commandInputRef = React.useRef<HTMLInputElement>(null); // Ref for focus
+
+    // DRAFT STATE
+    const [draftPost, setDraftPost] = useState<{ platform: string, content: string } | null>(null);
+
+    // Draft Listener
+    useEffect(() => {
+        const handleDraft = (e: CustomEvent) => {
+            console.log("Draft received!", e.detail);
+            setDraftPost(e.detail);
+        };
+        window.addEventListener('draft-received', handleDraft as EventListener);
+        return () => window.removeEventListener('draft-received', handleDraft as EventListener);
+    }, []);
+
+    const handleApproveDraft = async (content: string) => {
+        setDraftPost(null); // Clear draft
+        try {
+            // Send APPROVAL command back to Mother
+            await fetch('http://localhost:8000/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: `ACTION: linkedin_post INPUT: ${content}`,
+                    agent_name: "Soshie"
+                })
+            });
+            alert("Soshie publicerar nu inlägget!");
+        } catch (e) {
+            console.error(e);
+            alert("Fel vid publicering.");
+        }
+    };
 
     // Notification Permission Logic
     const requestNotificationPermission = async () => {
@@ -235,16 +278,22 @@ const Dashboard: React.FC = () => {
         if (!missionPrompt.trim()) return;
         setIsLaunching(true);
         try {
-            const launchFn = httpsCallable(functions, 'onComplexTaskRequest');
-            const res: any = await launchFn({ task: missionPrompt });
+            // Call Python Backend directly
+            const response = await fetch('http://localhost:8000/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: `MISSION_START: ${missionPrompt}` })
+            });
+            const data = await response.json();
 
-            if (res.data?.result?.task_id) {
-                setMissionPrompt('');
-                setActiveMissionId(res.data.result.task_id);
-            }
+            // For now, we just clear the prompt and maybe show a success status
+            // The LiveLog will show the actual activity
+            setMissionPrompt('');
+            // setActiveMissionId(res.data.result.task_id); // Future: Get ID from Python
+
         } catch (e: any) {
             console.error("Mission launch failed", e);
-            alert(`Failed to launch mission: ${e.message}`);
+            alert(`Could not connect to Mother Brain: ${e.message}`);
         } finally {
             setIsLaunching(false);
         }
@@ -290,16 +339,16 @@ const Dashboard: React.FC = () => {
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.6 }}
-                        className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border border-white/50 dark:border-white/10 px-4 md:px-6 py-4 rounded-3xl shadow-lg hover:shadow-xl transition-all flex items-center gap-3 md:gap-5 max-w-full overflow-x-auto"
+                        className="relative z-[60] flex items-center gap-2 flex-wrap pointer-events-auto"
                     >
                         <div className="relative">
                             <div className={`absolute inset-0 rounded-full blur-md opacity-20 ${user?.isGoogleConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                            <div className="w-12 h-12 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center shadow-sm border border-gray-100 dark:border-gray-600 relative z-10">
-                                <GoogleIcon className="w-6 h-6" />
+                            <div className="w-10 h-10 bg-white dark:bg-gray-700 rounded-full flex items-center justify-center shadow-sm border border-gray-100 dark:border-gray-600 relative z-10">
+                                <GoogleIcon className="w-5 h-5" />
                             </div>
                         </div>
                         <div>
-                            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Anslutning</div>
+                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Anslutning</div>
                             <div className={`text-sm font-bold flex items-center gap-2 ${user?.isGoogleConnected ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
                                 {user?.isGoogleConnected ? (
                                     <>
@@ -307,7 +356,7 @@ const Dashboard: React.FC = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <X className="w-4 h-4" /> Ej Ansluten
+                                        <X className="w-3 h-3" /> Ej Ansluten
                                     </>
                                 )}
                             </div>
@@ -316,138 +365,208 @@ const Dashboard: React.FC = () => {
                         <button
                             onClick={() => fetchDashboardData()}
                             disabled={checking}
-                            className={`p-3 rounded-full bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-all active:scale-95 ${checking ? 'animate-spin' : ''}`}
+                            className={`p-2 rounded-full bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 transition-all active:scale-95 ${checking ? 'animate-spin' : ''}`}
                         >
-                            <Activity className="w-5 h-5" />
+                            <Activity className="w-4 h-4" />
                         </button>
 
                         <div className="h-8 w-px bg-gray-200 mx-2"></div>
 
                         <button
                             onClick={requestNotificationPermission}
-                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors mr-2"
+                            className="relative z-20 cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all hover:scale-105 active:scale-95 text-sm"
                         >
-                            <Bell className="w-5 h-5" />
-                            <span className="hidden sm:inline">Aktivera Push-notiser från Mother</span>
+                            <Bell className="w-4 h-4" />
+                            <span className="hidden lg:inline">Notiser</span>
                         </button>
 
                         <Link
                             to="/settings"
-                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all mr-2"
+                            className="relative z-20 cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all hover:scale-105 active:scale-95 text-sm"
                         >
-                            <Settings className="w-5 h-5" />
-                            <span className="hidden sm:inline">Inställningar</span>
+                            <Settings className="w-4 h-4" />
+                            <span className="hidden lg:inline">Inställningar</span>
                         </Link>
 
                         <Link
                             to="/support"
-                            className="flex items-center gap-2 px-4 py-2 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-bold hover:bg-green-100 dark:hover:bg-green-900/50 transition-all"
+                            className="relative z-20 cursor-pointer flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 font-bold hover:bg-green-100 dark:hover:bg-green-900/50 transition-all hover:scale-105 active:scale-95 text-sm"
                         >
-                            <MessageSquarePlus className="w-5 h-5" />
-                            <span className="hidden sm:inline">Support</span>
+                            <MessageSquarePlus className="w-4 h-4" />
+                            <span className="hidden lg:inline">Support</span>
                         </Link>
+
+
                     </motion.div>
+                </div>
+
+                {/* --- LIVE BRAIN CONSOLE (Python Backend Monitor) --- */}
+                <div className="mb-12 relative z-50">
+                    <LiveLog />
                 </div>
 
                 {/* --- MOTHER HIVE COMMAND CENTER (Mission Launchpad) --- */}
                 {!activeMissionId && (
-                    <div className="mb-12 relative z-20">
-                        <div className="bg-gradient-to-r from-gray-900 to-black text-white rounded-[2rem] p-8 shadow-2xl border border-white/10 relative overflow-hidden">
-                            {/* Decorative glow */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-violet-500/20 rounded-full blur-[80px] -mr-16 -mt-16 pointer-events-none"></div>
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6 }}
+                        className="mb-12 relative z-20"
+                    >
+                        <div className="relative bg-gradient-to-br from-gray-900 via-gray-900 to-black text-white rounded-[2.5rem] p-10 shadow-2xl border border-white/10 overflow-hidden">
+                            {/* Animated background elements */}
+                            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                                <div className="absolute top-0 right-0 w-96 h-96 bg-violet-500/20 rounded-full blur-[120px] -mr-32 -mt-32 animate-pulse-slow"></div>
+                                <div className="absolute bottom-0 left-0 w-72 h-72 bg-cyan-500/15 rounded-full blur-[100px] -ml-20 -mb-20 animate-pulse-slow" style={{ animationDelay: '1s' }}></div>
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-violet-500/10 rounded-full animate-spin-slow"></div>
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] border border-cyan-500/5 rounded-full animate-spin-slow" style={{ animationDirection: 'reverse' }}></div>
+                            </div>
+
+                            {/* Shimmer overlay */}
+                            <div className="absolute inset-0 animate-shimmer pointer-events-none"></div>
 
                             <div className="relative z-10">
-                                <h2 className="text-2xl font-bold mb-4 flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-violet-500/30">
-                                        <Bot className="w-6 h-6 text-white" />
+                                <div className="flex items-start justify-between mb-6">
+                                    <div>
+                                        <div className="flex items-center gap-4 mb-3">
+                                            <motion.div
+                                                className="w-14 h-14 bg-gradient-to-br from-violet-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-violet-500/40 relative"
+                                                whileHover={{ scale: 1.1, rotate: 5 }}
+                                                transition={{ type: "spring", stiffness: 400 }}
+                                            >
+                                                <Bot className="w-7 h-7 text-white" />
+                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-900 status-indicator"></div>
+                                            </motion.div>
+                                            <div>
+                                                <h2 className="text-3xl font-black tracking-tight">Mother Hive Command</h2>
+                                                <p className="text-violet-300/80 text-sm font-medium">AI Orchestration System</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    Mother Hive Command Center
-                                </h2>
-                                <p className="text-gray-400 mb-6 max-w-2xl">
-                                    Start a complex mission. The High Council (Architect, Critic, Synthesizer) will orchestrate the optimal agent squad to execute your request.
+                                    <div className="hidden md:flex items-center gap-2 bg-white/5 rounded-full px-4 py-2 border border-white/10">
+                                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                        <span className="text-xs font-bold text-green-400">SYSTEM ONLINE</span>
+                                    </div>
+                                </div>
+
+                                <p className="text-gray-400 mb-8 max-w-2xl text-lg leading-relaxed">
+                                    Starta en komplex mission. <span className="text-violet-300">High Council</span> (Architect, Critic, Synthesizer) koordinerar det optimala agentteamet för din förfrågan.
                                 </p>
 
                                 <div className="flex flex-col md:flex-row gap-4">
-                                    <input
-                                        ref={commandInputRef}
-                                        value={missionPrompt}
-                                        onChange={(e) => setMissionPrompt(e.target.value)}
-                                        placeholder="Describe your mission (e.g., 'Research Eco-Tech trends and create a LinkedIn campaign')..."
-                                        className="flex-1 bg-white/10 border border-white/20 rounded-xl px-6 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:bg-white/15 transition-all text-lg"
-                                        onKeyDown={(e) => e.key === 'Enter' && handleLaunchMission()}
-                                    />
-                                    <button
+                                    <div className="flex-1 relative group">
+                                        <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-500 to-cyan-500 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-500"></div>
+                                        <input
+                                            ref={commandInputRef}
+                                            value={missionPrompt}
+                                            onChange={(e) => setMissionPrompt(e.target.value)}
+                                            placeholder="Beskriv din mission (t.ex. 'Analysera EcoTech-trender och skapa LinkedIn-kampanj')..."
+                                            className="relative w-full bg-gray-800/80 border border-white/20 rounded-2xl px-6 py-5 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 focus:bg-gray-800 transition-all text-lg"
+                                            onKeyDown={(e) => e.key === 'Enter' && handleLaunchMission()}
+                                        />
+                                    </div>
+                                    <motion.button
                                         onClick={handleLaunchMission}
                                         disabled={isLaunching || !missionPrompt.trim()}
-                                        className={`px-8 py-4 rounded-xl font-bold text-lg shadow-lg flex items-center gap-2 transition-all ${isLaunching ? 'bg-gray-700 cursor-wait' : 'bg-violet-600 hover:bg-violet-700 hover:shadow-violet-600/30 hover:scale-[1.02] active:scale-[0.98]'}`}
+                                        className={`px-10 py-5 rounded-2xl font-bold text-lg shadow-2xl flex items-center gap-3 transition-all relative overflow-hidden ${isLaunching ? 'bg-gray-700 cursor-wait' : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500'}`}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
                                     >
-                                        {isLaunching ? (
-                                            <>Initializing <Activity className="w-5 h-5 animate-spin" /></>
-                                        ) : (
-                                            <>Launch Mission <Zap className="w-5 h-5 fill-current" /></>
-                                        )}
-                                    </button>
+                                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                                        <span className="relative z-10 flex items-center gap-2">
+                                            {isLaunching ? (
+                                                <>Initierar <Activity className="w-5 h-5 animate-spin" /></>
+                                            ) : (
+                                                <>Starta Mission <Zap className="w-6 h-6 fill-current" /></>
+                                            )}
+                                        </span>
+                                    </motion.button>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
                 )}
 
                 {/* --- AGENT CONCIERGE WIDGET --- */}
-                <div className="mb-12 relative z-20">
-                    <div className="bg-white dark:bg-gray-800 rounded-[2rem] p-2 shadow-xl shadow-purple-500/5 border border-purple-100 dark:border-purple-900/30 flex flex-col md:flex-row items-center gap-2 max-w-4xl mx-auto transform transition-all hover:scale-[1.01]">
-                        <div className="bg-gradient-to-br from-purple-600 to-indigo-600 text-white p-4 rounded-[1.5rem] flex-shrink-0">
-                            <Sparkles className="w-6 h-6 animate-pulse" />
-                        </div>
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="mb-12 relative z-20"
+                >
+                    <div className="relative bg-white dark:bg-gray-800/90 rounded-[2.5rem] p-2 shadow-2xl shadow-purple-500/10 border border-purple-100/50 dark:border-purple-900/30 flex flex-col md:flex-row items-center gap-2 max-w-4xl mx-auto transform transition-all hover:shadow-purple-500/20 hover:scale-[1.005] duration-500 backdrop-blur-xl">
+                        {/* Gradient border effect */}
+                        <div className="absolute -inset-[1px] bg-gradient-to-r from-purple-500/20 via-cyan-500/20 to-purple-500/20 rounded-[2.5rem] -z-10 animate-gradient-x"></div>
+
+                        <motion.div
+                            className="bg-gradient-to-br from-purple-600 via-violet-600 to-indigo-600 text-white p-5 rounded-[2rem] flex-shrink-0 shadow-lg shadow-purple-500/30"
+                            whileHover={{ scale: 1.05, rotate: 5 }}
+                            transition={{ type: "spring", stiffness: 400 }}
+                        >
+                            <Sparkles className="w-7 h-7 animate-pulse" />
+                        </motion.div>
                         <input
                             value={conciergeQuery}
                             onChange={(e) => setConciergeQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleConciergeSearch()}
                             placeholder="Vad behöver du hjälp med? T.ex. 'skapa en bild' eller 'analysera data'..."
-                            className="flex-1 bg-transparent border-none outline-none px-4 py-3 text-lg font-medium placeholder-gray-400 text-gray-900 dark:text-white w-full"
+                            className="flex-1 bg-transparent border-none outline-none px-5 py-4 text-lg font-medium placeholder-gray-400 text-gray-900 dark:text-white w-full"
                         />
-                        <button
+                        <motion.button
                             onClick={handleConciergeSearch}
-                            className="bg-gray-900 text-white px-8 py-4 rounded-[1.5rem] font-bold hover:bg-black transition-all flex items-center gap-2 shadow-lg w-full md:w-auto justify-center group"
+                            className="bg-gradient-to-r from-gray-900 to-gray-800 text-white px-10 py-5 rounded-[2rem] font-bold hover:from-black hover:to-gray-900 transition-all flex items-center gap-3 shadow-xl w-full md:w-auto justify-center group relative overflow-hidden"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                         >
-                            <span className="group-hover:mr-2 transition-all">Hitta Agent</span>
-                            <Search className="w-5 h-5 group-hover:hidden transition-all" />
-                            <ArrowRight className="w-5 h-5 hidden group-hover:block transition-all" />
-                        </button>
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-cyan-600 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                            <span className="relative z-10 group-hover:mr-1 transition-all">Hitta Agent</span>
+                            <Search className="w-5 h-5 relative z-10 group-hover:scale-0 transition-all absolute right-10" />
+                            <ArrowRight className="w-5 h-5 relative z-10 scale-0 group-hover:scale-100 transition-all" />
+                        </motion.button>
                     </div>
 
                     <AnimatePresence>
                         {conciergeResult && (
                             <motion.div
-                                initial={{ opacity: 0, y: -20, height: 0 }}
-                                animate={{ opacity: 1, y: 10, height: 'auto' }}
-                                exit={{ opacity: 0, y: -20, height: 0 }}
+                                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                                animate={{ opacity: 1, y: 10, scale: 1 }}
+                                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 25 }}
                                 className="overflow-hidden max-w-4xl mx-auto"
                             >
-                                <div className="bg-[#0a0a0a] text-white rounded-[2rem] p-6 shadow-2xl border border-white/10 flex items-center gap-6 mt-4">
-                                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-white/20 overflow-hidden flex-shrink-0 relative group cursor-pointer">
-                                        <img src={getAgentImage(conciergeResult.name)} alt={conciergeResult.name} className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                            <h3 className="text-xl font-bold text-white">{conciergeResult.name}</h3>
-                                            <span className="text-xs bg-white/10 px-2 py-0.5 rounded-full text-white/70">{conciergeResult.role}</span>
+                                <div className="relative bg-gradient-to-br from-gray-900 via-gray-900 to-black text-white rounded-[2.5rem] p-8 shadow-2xl border border-white/10 flex flex-col md:flex-row items-center gap-6 mt-4 overflow-hidden">
+                                    {/* Glow effect */}
+                                    <div className="absolute top-0 right-0 w-40 h-40 bg-violet-500/20 rounded-full blur-[60px] pointer-events-none"></div>
+
+                                    <motion.div
+                                        className="w-20 h-20 rounded-3xl bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-violet-500/30 overflow-hidden flex-shrink-0 relative shadow-xl shadow-violet-500/20"
+                                        whileHover={{ scale: 1.1, rotate: 5 }}
+                                    >
+                                        <img src={getAgentImage(conciergeResult.name)} alt={conciergeResult.name} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-violet-500/20 to-transparent"></div>
+                                    </motion.div>
+                                    <div className="flex-1 text-center md:text-left">
+                                        <div className="flex flex-col md:flex-row items-center md:items-start gap-2 mb-2">
+                                            <h3 className="text-2xl font-black text-white">{conciergeResult.name}</h3>
+                                            <span className="text-xs bg-violet-500/20 border border-violet-500/30 px-3 py-1 rounded-full text-violet-300 font-semibold">{conciergeResult.role}</span>
                                         </div>
-                                        <p className="text-gray-400 text-sm">
+                                        <p className="text-gray-400 text-base">
                                             Jag kan hjälpa dig med detta! {conciergeResult.shortDescription}
                                         </p>
                                     </div>
-                                    <Link to={`/workspace/${conciergeResult.id}`} className="px-6 py-3 rounded-xl bg-white text-black font-bold hover:bg-gray-200 transition-colors flex items-center gap-2 whitespace-nowrap">
-                                        <Zap className="w-4 h-4 text-yellow-600 fill-yellow-600" /> Starta Uppdrag
-                                    </Link>
-                                    <button onClick={() => { setConciergeResult(null); setConciergeQuery(''); }} className="p-2 hover:bg-white/10 rounded-full transition-colors text-gray-500 hover:text-white">
+                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                        <Link to={`/workspace/${conciergeResult.id}`} className="px-8 py-4 rounded-2xl bg-gradient-to-r from-white to-gray-100 text-black font-bold hover:from-gray-100 hover:to-white transition-all flex items-center gap-3 whitespace-nowrap shadow-xl">
+                                            <Zap className="w-5 h-5 text-yellow-600 fill-yellow-600" /> Starta Uppdrag
+                                        </Link>
+                                    </motion.div>
+                                    <button onClick={() => { setConciergeResult(null); setConciergeQuery(''); }} className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors text-gray-500 hover:text-white">
                                         <X className="w-5 h-5" />
                                     </button>
                                 </div>
                             </motion.div>
                         )}
                     </AnimatePresence>
-                </div>
+                </motion.div>
 
                 {/* --- BRAIN FEED (Active Council Session) --- */}
                 <AnimatePresence>
@@ -465,29 +584,60 @@ const Dashboard: React.FC = () => {
 
                 {/* Leveling System Info Banner */}
                 <motion.div
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="mb-10 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-3xl p-8 text-white relative overflow-hidden shadow-2xl"
+                    transition={{ delay: 0.3, duration: 0.6 }}
+                    className="mb-12 relative"
                 >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                    <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                        <div>
-                            <div className="flex items-center gap-2 mb-2">
-                                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider backdrop-blur-md border border-white/20">Nyhet</span>
-                                <div className="flex text-yellow-300">
-                                    <TrendingUp className="w-4 h-4" />
-                                </div>
-                            </div>
-                            <h2 className="text-2xl md:text-3xl font-black mb-2 tracking-tight">Levla upp dina AI-medarbetare!</h2>
-                            <p className="text-violet-100 font-medium text-lg max-w-2xl leading-relaxed opacity-90">
-                                Ju mer du jobbar med dina agenter och tilldelar dem uppgifter, desto smartare och snabbare blir de. Lås upp nya förmågor genom att samla XP!
-                            </p>
+                    <div className="relative bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 rounded-[2.5rem] p-10 text-white overflow-hidden shadow-2xl shadow-violet-500/25">
+                        {/* Animated background elements */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-[80px] -mr-20 -mt-20"></div>
+                            <div className="absolute bottom-0 left-0 w-60 h-60 bg-cyan-400/10 rounded-full blur-[60px] -ml-10 -mb-10"></div>
+                            <div className="absolute top-1/2 right-1/4 w-4 h-4 bg-yellow-400 rounded-full animate-subtle-bounce" style={{ animationDelay: '0s' }}></div>
+                            <div className="absolute top-1/3 right-1/3 w-3 h-3 bg-cyan-400 rounded-full animate-subtle-bounce" style={{ animationDelay: '0.5s' }}></div>
+                            <div className="absolute bottom-1/3 right-1/5 w-2 h-2 bg-white rounded-full animate-subtle-bounce" style={{ animationDelay: '1s' }}></div>
                         </div>
-                        <div className="hidden md:block">
-                            <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20 animate-pulse">
-                                <TrendingUp className="w-8 h-8 text-white" />
+
+                        <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
+                            <div>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <motion.span
+                                        className="bg-white/20 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest backdrop-blur-md border border-white/30"
+                                        animate={{ scale: [1, 1.02, 1] }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                    >
+                                        ✨ Nyhet
+                                    </motion.span>
+                                    <div className="flex text-yellow-300 gap-1">
+                                        {[...Array(3)].map((_, i) => (
+                                            <motion.div
+                                                key={i}
+                                                animate={{ y: [0, -3, 0] }}
+                                                transition={{ duration: 0.5, delay: i * 0.1, repeat: Infinity, repeatDelay: 2 }}
+                                            >
+                                                <TrendingUp className="w-4 h-4" />
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <h2 className="text-3xl md:text-4xl font-black mb-3 tracking-tight">Levla upp dina AI-medarbetare!</h2>
+                                <p className="text-violet-100 font-medium text-lg max-w-2xl leading-relaxed">
+                                    Ju mer du jobbar med dina agenter och tilldelar dem uppgifter, desto smartare och snabbare blir de. <span className="text-yellow-300 font-bold">Lås upp nya förmågor</span> genom att samla XP!
+                                </p>
                             </div>
+                            <motion.div
+                                className="hidden md:flex items-center justify-center"
+                                whileHover={{ scale: 1.1, rotate: 10 }}
+                                transition={{ type: "spring", stiffness: 300 }}
+                            >
+                                <div className="w-24 h-24 bg-white/10 rounded-3xl flex items-center justify-center backdrop-blur-md border border-white/20 shadow-2xl relative">
+                                    <TrendingUp className="w-12 h-12 text-white" />
+                                    <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-xl flex items-center justify-center text-black font-black text-sm shadow-lg">
+                                        XP
+                                    </div>
+                                </div>
+                            </motion.div>
                         </div>
                     </div>
                 </motion.div>
@@ -553,23 +703,33 @@ const Dashboard: React.FC = () => {
 
                         {/* Agents Section */}
                         <div>
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                                    <Bot className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                                    <span>Mina Agenter</span>
-                                </h2>
-                                {!activeMissionId && (
-                                    <button
-                                        onClick={scrollToCommandCenter}
-                                        className="text-sm font-bold text-purple-600 hover:bg-purple-50 px-4 py-2 rounded-xl transition-all"
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center gap-4">
+                                    <motion.div
+                                        className="w-12 h-12 bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30"
+                                        whileHover={{ scale: 1.1, rotate: 5 }}
                                     >
-                                        + Starta Uppdrag
-                                    </button>
+                                        <Bot className="w-6 h-6 text-white" />
+                                    </motion.div>
+                                    <div>
+                                        <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">Mina Agenter</h2>
+                                        <p className="text-gray-400 text-sm">9 AI-medarbetare redo att hjälpa dig</p>
+                                    </div>
+                                </div>
+                                {!activeMissionId && (
+                                    <motion.button
+                                        onClick={scrollToCommandCenter}
+                                        className="text-sm font-bold text-white bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 px-6 py-3 rounded-xl transition-all shadow-lg shadow-purple-500/20 flex items-center gap-2"
+                                        whileHover={{ scale: 1.05 }}
+                                        whileTap={{ scale: 0.95 }}
+                                    >
+                                        <Zap className="w-4 h-4" /> Starta Uppdrag
+                                    </motion.button>
                                 )}
                             </div>
 
                             {/* ALWAYS SHOW HIVE MIND SQUAD */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {hiveMindSquad.map((agentName, idx) => {
                                     const isActive = activeMissionId !== null;
                                     const agentInfo = agents.find(a => a.name === agentName) || agents[0]; // Fallback info
@@ -579,30 +739,48 @@ const Dashboard: React.FC = () => {
                                             key={agentName}
                                             initial={{ opacity: 0, y: 20 }}
                                             animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: idx * 0.05 }}
-                                            className={`rounded-3xl p-1 shadow-lg transition-all duration-500 
+                                            transition={{ delay: idx * 0.06, duration: 0.5 }}
+                                            className={`relative rounded-[2rem] transition-all duration-500 hover-lift card-shine
                                                 ${isActive
-                                                    ? "bg-gradient-to-br from-violet-900/10 to-transparent border border-violet-500/30 ring-1 ring-violet-500/20 shadow-violet-500/20"
-                                                    : "bg-white dark:bg-gray-800 border border-transparent hover:scale-[1.01] hover:shadow-xl"
+                                                    ? "bg-gradient-to-br from-violet-500/10 via-transparent to-cyan-500/10 border-2 border-violet-500/40 shadow-2xl shadow-violet-500/20"
+                                                    : "bg-white dark:bg-gray-800/90 border border-gray-100 dark:border-gray-700/50 hover:border-violet-500/30 shadow-xl"
                                                 }`}
+                                            whileHover={{ y: -4 }}
                                         >
-                                            <div onClick={() => setSelectedAgentId(agentInfo.id)} className="block h-full cursor-pointer relative z-10 outline-none focus:ring-2 focus:ring-violet-500 rounded-[1.3rem]">
-                                                <div className="bg-white dark:bg-gray-800 rounded-[1.3rem] p-6 h-full flex flex-col relative overflow-hidden group">
-                                                    <div className="absolute top-2 right-2 flex gap-1">
+                                            {/* Gradient border effect on hover */}
+                                            <div className="absolute -inset-[1px] bg-gradient-to-r from-violet-500/0 via-cyan-500/0 to-purple-500/0 rounded-[2rem] opacity-0 hover:opacity-100 transition-opacity duration-500 -z-10 blur-sm"></div>
+
+                                            <div onClick={() => setSelectedAgentId(agentInfo.id)} className="block h-full cursor-pointer relative z-10 outline-none focus:ring-2 focus:ring-violet-500 rounded-[1.8rem] p-1">
+                                                <div className="bg-white dark:bg-gray-800 rounded-[1.6rem] p-6 h-full flex flex-col relative overflow-hidden group">
+                                                    {/* Decorative glow */}
+                                                    <div className="absolute top-0 right-0 w-32 h-32 bg-violet-500/5 rounded-full blur-[40px] -mr-10 -mt-10 group-hover:bg-violet-500/10 transition-all duration-500 pointer-events-none"></div>
+
+                                                    <div className="absolute top-3 right-3 flex gap-2">
                                                         {isActive && (
-                                                            <span className="bg-green-500/10 text-green-500 text-[10px] font-bold px-2 py-1 rounded-full border border-green-500/20 animate-pulse">● LIVE</span>
+                                                            <motion.span
+                                                                className="bg-green-500/20 text-green-400 text-[10px] font-bold px-3 py-1.5 rounded-full border border-green-500/30 flex items-center gap-1.5"
+                                                                animate={{ scale: [1, 1.05, 1] }}
+                                                                transition={{ duration: 2, repeat: Infinity }}
+                                                            >
+                                                                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> LIVE
+                                                            </motion.span>
                                                         )}
                                                     </div>
                                                     <div className="w-full flex flex-col items-center relative z-10">
 
                                                         {/* Agent Info & Image */}
-                                                        <div className="flex flex-col items-center z-20 bg-white dark:bg-gray-800 rounded-2xl p-2">
-                                                            <div className="w-20 h-20 rounded-2xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center overflow-hidden shadow-md mb-2 relative">
+                                                        <div className="flex flex-col items-center z-20 rounded-2xl p-2">
+                                                            <motion.div
+                                                                className="w-24 h-24 rounded-3xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center overflow-hidden shadow-xl mb-4 relative border-2 border-white dark:border-gray-600"
+                                                                whileHover={{ scale: 1.08, rotate: 3 }}
+                                                                transition={{ type: "spring", stiffness: 400 }}
+                                                            >
                                                                 <img src={getAgentImage(agentName)} alt={agentName} className="w-full h-full object-cover" />
-                                                            </div>
+                                                                <div className="absolute inset-0 bg-gradient-to-t from-violet-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                                            </motion.div>
                                                             <div className="text-center">
-                                                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">{agentName}</h3>
-                                                                <div className="text-sm text-gray-400">{agentInfo.role}</div>
+                                                                <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">{agentName}</h3>
+                                                                <div className="text-sm text-violet-500 dark:text-violet-400 font-medium">{agentInfo.role}</div>
                                                             </div>
                                                         </div>
 
@@ -657,107 +835,114 @@ const Dashboard: React.FC = () => {
                                     );
                                 })}
                             </div>
+
+                            {/* System Status Dashboard */}
+                            <div className="mt-12">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+                                    <Network className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                                    <span>Mother System Status</span>
+                                </h2>
+                                <SystemStatusPanel />
+                            </div>
                         </div>
                     </div>
 
                     {/* Right Column: Activity Feed (4/12) */}
                     <div className="lg:col-span-4">
+                        {/* DRAFT WIDGET (Sits above logs) */}
+                        <AnimatePresence>
+                            {draftPost && (
+                                <SocialDraftWidget
+                                    draft={draftPost}
+                                    onReject={() => setDraftPost(null)}
+                                    onApprove={handleApproveDraft}
+                                />
+                            )}
+                        </AnimatePresence>
+
                         <motion.div
                             initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.5 }}
-                            className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-white dark:border-gray-700 sticky top-24"
+                            transition={{ delay: 0.5, duration: 0.6 }}
+                            className="relative bg-white dark:bg-gray-800/90 rounded-[2.5rem] p-8 shadow-2xl shadow-gray-200/50 dark:shadow-violet-500/5 border border-gray-100 dark:border-gray-700/50 sticky top-24 backdrop-blur-xl overflow-hidden"
                         >
-                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-8 flex items-center gap-3">
-                                <Activity className="w-5 h-5 text-blue-500" />
-                                Händelselogg
-                            </h2>
+                            {/* Decorative background */}
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/5 to-violet-500/5 rounded-full blur-[60px] -mr-10 -mt-10 pointer-events-none"></div>
 
-                            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                            <div className="flex items-center justify-between mb-8">
+                                <div className="flex items-center gap-3">
+                                    <motion.div
+                                        className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30"
+                                        whileHover={{ scale: 1.1, rotate: 5 }}
+                                    >
+                                        <Activity className="w-5 h-5 text-white" />
+                                    </motion.div>
+                                    <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">Händelselogg</h2>
+                                </div>
+                                <div className="flex items-center gap-1.5 bg-green-500/10 px-3 py-1.5 rounded-full border border-green-500/20">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="text-xs font-bold text-green-600 dark:text-green-400">Live</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar relative z-10">
                                 {(() => {
                                     // Combine system logs and tasks/notifications
                                     const logs = JSON.parse(localStorage.getItem('system_logs') || '[]');
 
                                     if (logs.length === 0) {
                                         return (
-                                            <div className="text-center py-10 text-gray-400">
-                                                <p className="text-sm">Inga händelser ännu.</p>
-                                            </div>
+                                            <motion.div
+                                                initial={{ opacity: 0 }}
+                                                animate={{ opacity: 1 }}
+                                                className="text-center py-16"
+                                            >
+                                                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                                    <Activity className="w-8 h-8 text-gray-300 dark:text-gray-500" />
+                                                </div>
+                                                <p className="text-gray-400 font-medium">Inga händelser ännu</p>
+                                                <p className="text-gray-300 dark:text-gray-600 text-sm mt-1">Starta en mission för att se aktivitet</p>
+                                            </motion.div>
                                         );
                                     }
 
                                     return logs.slice().reverse().map((log: any, i: number) => (
-                                        <div key={i} className="relative pl-6 group">
+                                        <motion.div
+                                            key={i}
+                                            initial={{ opacity: 0, x: -10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ delay: i * 0.05 }}
+                                            className="relative pl-7 group"
+                                        >
                                             {/* Timeline Line */}
-                                            {i !== logs.length - 1 && <div className="absolute left-1.5 top-2 bottom-[-24px] w-0.5 bg-gray-100 group-hover:bg-purple-100 transition-colors"></div>}
+                                            {i !== logs.length - 1 && (
+                                                <div className="absolute left-[7px] top-6 bottom-[-16px] w-0.5 bg-gradient-to-b from-violet-200 to-transparent dark:from-violet-900/50 group-hover:from-violet-400 transition-colors"></div>
+                                            )}
 
-                                            {/* Dot */}
-                                            <div className="absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm bg-blue-500"></div>
+                                            {/* Dot with glow */}
+                                            <div className="absolute left-0 top-3 w-4 h-4 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-500/30 border-2 border-white dark:border-gray-800 z-10"></div>
 
-                                            <div className="p-4 rounded-2xl bg-white dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600 shadow-sm transition-all hover:bg-gray-50 dark:hover:bg-gray-700">
-                                                <div className="flex justify-between items-start mb-1">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                                            <div className="p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700/50 transition-all hover:bg-white dark:hover:bg-gray-700/50 hover:shadow-lg hover:border-violet-200 dark:hover:border-violet-500/30 group-hover:translate-x-1">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-violet-500 dark:text-violet-400 bg-violet-50 dark:bg-violet-500/10 px-2 py-0.5 rounded-full">
                                                         {new Date(log.timestamp || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                 </div>
-                                                <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-1">{log.message}</h4>
-                                                <div className="flex items-center gap-2 mt-2">
-                                                    <div className="w-5 h-5 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 text-white flex items-center justify-center text-[10px] font-bold shadow-sm">
-                                                        {log.agent ? log.agent[0] : 'S'}
+                                                <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2 leading-snug">{log.message}</h4>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-[10px] font-black shadow-md">
+                                                        {log.agent ? log.agent[0].toUpperCase() : 'S'}
                                                     </div>
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{log.agent || 'System'}</span>
+                                                    <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">{log.agent || 'System'}</span>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </motion.div>
                                     ));
                                 })()}
                             </div>
                         </motion.div>
 
-                        {/* Recent Time Reports Widget */}
-                        <motion.div
-                            initial={{ opacity: 0, x: 20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.6 }}
-                            className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-white dark:border-gray-700 mt-8"
-                        >
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-                                    <Clock className="w-5 h-5 text-purple-500" />
-                                    Tidrapporter
-                                </h2>
-                                <Link to="/time-report" className="text-xs font-bold text-purple-600 hover:text-purple-700 bg-purple-50 px-3 py-1 rounded-full transition-colors">
-                                    Visa alla
-                                </Link>
-                            </div>
 
-                            <div className="space-y-4">
-                                {(() => {
-                                    try {
-                                        const savedLogs = JSON.parse(localStorage.getItem('timeLogs') || '[]');
-                                        if (savedLogs.length === 0) return (
-                                            <div className="text-center py-6 text-gray-400 text-sm">Inga rapporter inlämnade.</div>
-                                        );
-                                        return savedLogs.slice(0, 3).map((log: any) => (
-                                            <div key={log.id} className="flex items-center gap-4 p-3 rounded-2xl bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-700">
-                                                <div className="w-10 h-10 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 flex items-center justify-center text-gray-500 shadow-sm">
-                                                    <Car className="w-5 h-5" />
-                                                </div>
-                                                <div className="flex-1">
-                                                    <div className="flex justify-between">
-                                                        <div className="font-bold text-gray-900 dark:text-white text-sm">{log.date}</div>
-                                                        <div className="text-xs font-bold text-green-600 bg-green-100 px-2 rounded-full">{log.endOdometer - log.startOdometer} km</div>
-                                                    </div>
-                                                    <div className="text-xs text-gray-400 mt-0.5">{log.startTime} - {log.endTime}</div>
-                                                </div>
-                                            </div>
-                                        ));
-                                    } catch (e) {
-                                        return <div className="text-center py-4 text-red-400 text-xs">Kunde inte läsa data.</div>;
-                                    }
-                                })()}
-                            </div>
-                        </motion.div>
                     </div>
 
                 </div>

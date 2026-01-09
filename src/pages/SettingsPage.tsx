@@ -518,7 +518,7 @@ const ThemeSettingsTab = () => {
         <div className="space-y-6">
             <div>
                 <h2 className="text-2xl font-bold mb-2 flex items-center gap-2 dark:text-white"><Moon className="text-purple-500" /> Utseende</h2>
-                <p className="text-gray-500 dark:text-gray-400">Anpassa Robotrna efter din smak.</p>
+                <p className="text-gray-500 dark:text-gray-400">Anpassa Bora Ai efter din smak.</p>
             </div>
 
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">

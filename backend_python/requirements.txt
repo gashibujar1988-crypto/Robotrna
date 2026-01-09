@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+python-multipart
+google-generativeai
+python-dotenv
+requests
+pydantic
+websockets
+openai
+google-api-python-client
+beautifulsoup4

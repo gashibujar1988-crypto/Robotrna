@@ -52,7 +52,7 @@ const CookieConsent: React.FC = () => {
                                 <Shield className="w-3 h-3 text-green-400" />
                             </h3>
                             <p className="text-gray-400 text-sm leading-relaxed">
-                                Vi använder cookies för att optimera Robotrna och ge dig en personlig upplevelse.
+                                Vi använder cookies för att optimera Bora Ai och ge dig en personlig upplevelse.
                                 Genom att fortsätta godkänner du vår hantering av data.
                             </p>
                         </div>

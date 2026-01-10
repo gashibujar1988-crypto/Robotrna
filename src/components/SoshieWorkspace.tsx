@@ -68,7 +68,7 @@ const SoshieWorkspace: React.FC = () => {
     const soshie = agents.find(a => a.name === 'Soshie');
     const subAgents = soshie?.subAgents || [];
 
-    // --- MOCK API FUNCTIONS (Simulating Backend/Oracle & n8n) ---
+    // --- MOCK API FUNCTIONS (Simulating Backend/Oracle Oracle & n8n Backend) ---
 
     // 1. SELECT FROM GLOBAL_MEMORY_HUB WHERE DATA_TYPE = 'social_post'
     const fetchOracleSocialPosts = async (): Promise<SocialPost[]> => {
@@ -135,8 +135,8 @@ const SoshieWorkspace: React.FC = () => {
     };
 
     // 2. Trigger n8n Webhook
-    const triggerN8nPostWorkflow = async (post: SocialPost) => {
-        console.log(`[n8n Trigger] Sending command to post for ID: ${post.id}`);
+    const triggerBackendPostWorkflow = async (post: SocialPost) => {
+        console.log(`[Backend Trigger] Sending command to post for ID: ${post.id}`);
         const payload = {
             id: post.id,
             network: post.network,
@@ -146,7 +146,7 @@ const SoshieWorkspace: React.FC = () => {
         };
 
         try {
-            // NOTE: Ensure your n8n workflow has a Webhook node listening at /webhook-test/soshie-action
+            // NOTE: Ensure your backend workflow has a Webhook node listening at /webhook-test/soshie-action
             // or /webhook/soshie-action (for production)
             const response = await fetch('http://158.179.206.103:5678/webhook-test/soshie-action', {
                 method: 'POST',
@@ -155,15 +155,15 @@ const SoshieWorkspace: React.FC = () => {
             });
 
             if (!response.ok) {
-                console.error("n8n responded with error:", response.statusText);
+                console.error("backend responded with error:", response.statusText);
                 return false;
             }
 
             const result = await response.text(); // or .json() depending on n8n response
-            console.log("[n8n Response]", result);
+            console.log("[Backend Response]", result);
             return true;
         } catch (error) {
-            console.error("Failed to trigger n8n workflow:", error);
+            console.error("Failed to trigger backend workflow:", error);
             // We return false here so the UI doesn't optimistically update if the network fails
             return false;
         }
@@ -216,8 +216,8 @@ const SoshieWorkspace: React.FC = () => {
     const handlePostReply = async (post: SocialPost) => {
         if (!post.replySuggestion) return;
         try {
-            // 1. Call n8n
-            const success = await triggerN8nPostWorkflow(post);
+            // 1. Call Backend
+            const success = await triggerBackendPostWorkflow(post);
             if (!success) {
                 console.error("Aborting UI update because n8n trigger failed.");
                 return;

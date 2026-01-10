@@ -23,7 +23,14 @@ class LinkedInTool:
         print(f"[LinkedInTool] -> Preparing post: {text[:50]}...")
         
         if not self.access_token or not self.author_urn:
-            return f"[SIMULATION] Posted to LinkedIn: '{text}'\n(Real posting requires a fresh OAuth Access Token)"
+            return f"""[SIMULATION MODE - LinkedIn]
+Would post: "{text}"
+
+⚠️  To post on LinkedIn for real:
+1. Create app at https://www.linkedin.com/developers/apps
+2. Get Access Token via OAuth flow  
+3. Add LINKEDIN_ACCESS_TOKEN and LINKEDIN_AUTHOR_URN to python_secrets.env
+"""
 
         url = "https://api.linkedin.com/v2/ugcPosts"
         headers = {

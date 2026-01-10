@@ -20,7 +20,6 @@ import PricingPage from './pages/PricingPage';
 import DevelopersPage from './pages/DevelopersPage';
 import SettingsPage from './pages/SettingsPage';
 import AnalyticsPage from './pages/AnalyticsPage';
-import N8nDemoPage from './pages/N8nDemoPage';
 import SystemArchitecture from './pages/SystemArchitecture';
 
 const PrivateRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -84,7 +83,7 @@ const AnimatedRoutes = () => {
           }
         />
 
-        <Route path="/n8n-demo" element={<PageWrapper><N8nDemoPage /></PageWrapper>} />
+
         <Route path="/agent/:id" element={<PageWrapper><Navbar /><AgentInfo /><Footer /></PageWrapper>} />
         <Route path="/how-it-works" element={<PageWrapper><HowItWorksPage /></PageWrapper>} />
 

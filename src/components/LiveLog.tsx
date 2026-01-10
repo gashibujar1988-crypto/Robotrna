@@ -17,7 +17,9 @@ export default function LiveLog() {
     useEffect(() => {
         // Connect to WebSocket
         const connect = () => {
-            const ws = new WebSocket('ws://localhost:8000/ws/logs');
+            const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+            const wsUrl = backendUrl.replace('http', 'ws');
+            const ws = new WebSocket(`${wsUrl}/ws/logs`);
             wsRef.current = ws;
 
             ws.onopen = () => {

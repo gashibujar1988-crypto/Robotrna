@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, Mail, User, Phone, Globe, DollarSign, Send, CheckCircle, Loader2 } from 'lucide-react';
 import { onSnapshot, doc } from 'firebase/firestore';
-import { n8n } from '../api/client';
+import { pythonBackend } from '../api/client';
 import { db } from '../firebase';
 
 interface Lead {
@@ -33,7 +33,7 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
     const [showDrafts, setShowDrafts] = useState(false);
     const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
-    // --- MOCK ORACLE / N8N INTEGRATIONS ---
+    // --- PYTHON BACKEND INTEGRATIONS ---
 
     // 1. Simulate Polling Oracle for Drafts (Triggered by 'email_draft' appearing)
     useEffect(() => {
@@ -78,12 +78,12 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
         setActiveTaskId(newTaskId);
 
         try {
-            // Trigger n8n Dexter workflow
-            await n8n.triggerDexter(leads, newTaskId);
+            // Trigger Python backend Dexter agent
+            await pythonBackend.sendMessage('Dexter', `Process ${leads.length} leads: ${JSON.stringify(leads)}`);
 
-            // Lyssna på resultat från Firestore
+            // Listen for results from Firestore
             const unsubscribe = onSnapshot(
-                doc(db, 'n8n_results', newTaskId),
+                doc(db, 'agent_tasks', newTaskId),
                 (docSnap) => {
                     const data = docSnap.data();
                     if (data && data.status === 'READY' && data.type === 'email_draft') {
@@ -119,8 +119,8 @@ const LeadsDrawer: React.FC<LeadsDrawerProps> = ({ isOpen, onClose, leads }) => 
         // 1. Trigger Oracle Update: UPDATE STATUS = 'APPROVED'
         console.log(`[Oracle] UPDATE GLOBAL_MEMORY_HUB SET status = 'APPROVED' WHERE task_id = '${activeTaskId}'`);
 
-        // 2. This DB change would auto-trigger the next n8n step (Send Email)
-        console.log(`[n8n] Trigger: Send Email Loop startad...`);
+        // 2. This DB change would auto-trigger the next backend step (Send Email)
+        console.log(`[Backend] Trigger: Send Email Loop startad...`);
 
         // UI Feedback
         setShowDrafts(false);

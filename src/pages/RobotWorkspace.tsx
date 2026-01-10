@@ -60,7 +60,7 @@ const PixelProgressCard = () => {
 const PixelDownloadCard = ({ downloadUrl }: { downloadUrl?: string }) => {
     const handleDownload = () => {
         if (downloadUrl) {
-            // Real Download from n8n
+            // Real Download from backend
             window.open(downloadUrl, '_blank');
         } else {
             // Fallback Simulation
@@ -97,7 +97,7 @@ const PixelDownloadCard = ({ downloadUrl }: { downloadUrl?: string }) => {
 
                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
                         <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                        Powered by n8n Server (Oracle Cloud)
+                        Powered by Python Backend (Oracle Cloud)
                     </div>
                 </div>
             </div>
@@ -695,7 +695,7 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                 agentName: 'Pixel'
             }]);
 
-            // 3. Call n8n Webhook (Real backend)
+            // 3. Call Python Backend (Real backend)
             try {
                 // Determine theme from history or default
                 const theme = 'modern tech';
@@ -728,11 +728,11 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
                 }]);
 
             } catch (error) {
-                console.error("n8n Connection Error:", error);
+                console.error("Backend Connection Error:", error);
                 setMessages(prev => [...prev, {
                     id: Date.now().toString(),
                     sender: 'bot',
-                    text: "⚠️ Kunde inte nå n8n-servern. Kontrollera att workflowet är satt till **Active** i n8n-panelen.",
+                    text: "⚠️ Kunde inte nå Python backend. Kontrollera att workflowet är satt till **Active** i backend server.",
                     timestamp: new Date(),
                     agentName: 'Pixel'
                 }]);
@@ -1740,7 +1740,7 @@ Ditt mål är att maximera användarens framgång genom osynlig, proaktiv intell
 
                                                             </div>
                                                             <div className="flex justify-between items-center mt-3 px-2">
-                                                                <span className="text-[10px] text-white/40 italic">*Detta är en preview. n8n krävs för export.*</span>
+                                                                <span className="text-[10px] text-white/40 italic">*Detta är en preview. Python backend krävs för export.*</span>
                                                                 <button onClick={() => processMessage("Jag vill ändra designstil tack")} className="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded transition flex items-center gap-2 cursor-pointer shadow-lg hover:bg-white/30">
                                                                     <Activity size={12} />
                                                                     Justera Design

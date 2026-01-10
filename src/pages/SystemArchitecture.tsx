@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { agents } from '../data/agents';
 
-// --- N8N WORKFLOW DATA (Enhanced Source of Truth) ---
+// --- HIGH COUNCIL WORKFLOW DATA (Python Backend Architecture) ---
 const motherPipeline = [
     { id: 'webhook', label: 'Start: Webhook', type: 'trigger', icon: Zap, details: 'POST /mother-hive-mind' },
     { id: 'oracle1', label: '0. Fetch Context', type: 'database', icon: Database, details: 'Oracle DB: Select Context' },
@@ -198,7 +198,7 @@ const agentWorkflows: Record<string, any> = {
 };
 
 
-// Internal node for the n8n Workflow Visualization
+// Internal node for the High Council Workflow Visualization
 const WorkflowNode = ({ label, type, details, isLast = false, icon: Icon, apis = [] }: { label: string, type: string, details: string, isLast?: boolean, icon?: any, apis?: any[] }) => {
     let colorClass = 'border-slate-700 bg-slate-800';
     let iconColor = 'text-slate-400';
@@ -278,7 +278,7 @@ const SystemArchitecture: React.FC = () => {
                         System Architecture <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-cyan-500">Overview</span>
                     </h1>
                     <p className="text-slate-400 max-w-2xl mx-auto">
-                        Visualisering av det neurala nätverket. Se hur Mother orkestrerar sub-agenter och kopplar samman din data via n8n-servern i Oracle Cloud.
+                        Visualisering av det neurala nätverket. Se hur Mother orkestrerar sub-agenter via High Council Python backend i Oracle Cloud.
                     </p>
                 </div>
 
@@ -432,7 +432,7 @@ const SystemArchitecture: React.FC = () => {
                             <div className="h-px w-32 bg-slate-700"></div>
                             <div className="flex flex-col items-center gap-2">
                                 <Server className="text-slate-600" />
-                                <span className="text-xs font-mono text-slate-600">N8N SERVER (ORCHESTRATOR)</span>
+                                <span className="text-xs font-mono text-slate-600">PYTHON BACKEND (HIGH COUNCIL)</span>
                             </div>
                             <div className="h-px w-32 bg-slate-700"></div>
                             <div className="flex flex-col items-center gap-2">

@@ -6,7 +6,7 @@ import { n8n } from '../api/client';
 interface SystemStatus {
     motherHive: { status: string; brains: { name: string; status: string }[]; executions?: number };
     agents: { name: string; status: string; lastActive: any }[];
-    n8nWebhooks: { name: string; status: string; lastExecution: any }[];
+    pythonEndpoints: { name: string; status: string; lastExecution: any }[];
     oracleDb: { status: string; latency: number };
 }
 
@@ -121,11 +121,10 @@ const SystemStatusPanel: React.FC = () => {
                 <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
                     {status.agents.map(agent => (
                         <div key={agent.name} className="flex flex-col items-center gap-2 p-3 rounded-lg bg-black/20 border border-white/5 hover:border-white/20 transition-colors">
-                            <div className={`w-3 h-3 rounded-full ${
-                                agent.status === 'OFFLINE' ? 'bg-red-500' :
+                            <div className={`w-3 h-3 rounded-full ${agent.status === 'OFFLINE' ? 'bg-red-500' :
                                 agent.status === 'WORKING' ? 'bg-yellow-500 animate-pulse' :
-                                'bg-green-500'
-                            }`} />
+                                    'bg-green-500'
+                                }`} />
                             <span className="text-xs font-bold text-white text-center">{agent.name}</span>
                             <span className="text-[10px] text-gray-400">{agent.status}</span>
                         </div>
@@ -135,7 +134,7 @@ const SystemStatusPanel: React.FC = () => {
 
             {/* System Infrastructure */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* N8N Webhooks */}
+                {/* Python Backend Endpoints */}
                 <motion.div
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -144,10 +143,10 @@ const SystemStatusPanel: React.FC = () => {
                 >
                     <h4 className="text-sm font-bold text-orange-400 mb-3 flex items-center gap-2">
                         <Zap className="w-4 h-4" />
-                        N8N Webhooks
+                        Python Endpoints
                     </h4>
                     <div className="space-y-2">
-                        {status.n8nWebhooks.map(hook => (
+                        {status.pythonEndpoints?.map(hook => (
                             <div key={hook.name} className="flex justify-between items-center">
                                 <span className="text-xs text-gray-300 capitalize">{hook.name}</span>
                                 {hook.status === 'ONLINE' ?

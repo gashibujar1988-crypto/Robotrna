@@ -1519,40 +1519,71 @@ export const brain = {
     listDocuments: async () => ({ data: [] })
 };
 
-// N8N Integration
-export const n8n = {
-    triggerMotherHive: async (task: string) => {
-        const { functions } = await import('../firebase');
-        const { httpsCallable } = await import('firebase/functions');
-        const trigger = httpsCallable(functions, 'n8nWebhookTrigger');
-        const taskId = `task-${Date.now()}`;
-        await trigger({ workflow: 'mother-hive', payload: { task, taskId } });
-        return taskId;
-    },
+// Python Backend Integration (FastAPI)
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
-    triggerSoshie: async (postType: string, content: string) => {
-        const { functions } = await import('../firebase');
-        const { httpsCallable } = await import('firebase/functions');
-        const trigger = httpsCallable(functions, 'n8nWebhookTrigger');
-        const taskId = `social-${Date.now()}`;
-        await trigger({ workflow: 'soshie', payload: { postType, content, taskId } });
-        return taskId;
-    },
-
-    triggerDexter: async (leads: any[], taskId: string) => {
-        const { functions } = await import('../firebase');
-        const { httpsCallable } = await import('firebase/functions');
-        const trigger = httpsCallable(functions, 'n8nWebhookTrigger');
-        await trigger({ workflow: 'dexter', payload: { leads, taskId } });
+export const pythonBackend = {
+    sendMessage: async (agentName: string, message: string) => {
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message, agent_name: agentName })
+            });
+            if (!response.ok) throw new Error(`Backend error: ${response.statusText}`);
+            const data = await response.json();
+            return data.response;
+        } catch (error: any) {
+            console.error('Python backend error:', error);
+            throw error;
+        }
     },
 
     getSystemStatus: async () => {
-        const { functions } = await import('../firebase');
-        const { httpsCallable } = await import('firebase/functions');
-        const getStatus = httpsCallable(functions, 'getSystemStatus');
-        const result = await getStatus({});
-        return result.data;
+        try {
+            const response = await fetch(`${BACKEND_URL}/`);
+            if (!response.ok) throw new Error(`Backend error: ${response.statusText}`);
+            const data = await response.json();
+            return {
+                status: data.status,
+                type: data.type,
+                agents: ['Soshie', 'Brainy', 'Dexter', 'Hunter', 'Nova', 'Pixel', 'Venture', 'Atlas', 'Ledger'],
+                highCouncil: {
+                    architect: 'Gemini',
+                    researcher: 'GPT-4',
+                    critic: 'GPT-4',
+                    synthesizer: 'Gemini'
+                }
+            };
+        } catch (error: any) {
+            console.error('System status error:', error);
+            return {
+                status: 'offline',
+                error: error.message
+            };
+        }
     }
 };
+
+// Legacy compatibility - keeping n8n export but pointing to pythonBackend
+export const n8n = {
+    triggerMotherHive: async (task: string) => {
+        console.warn('[DEPRECATED] Using legacy n8n.triggerMotherHive - switching to Python backend');
+        return pythonBackend.sendMessage('Mother', task);
+    },
+    triggerSoshie: async (postType: string, content: string) => {
+        console.warn('[DEPRECATED] Using legacy n8n.triggerSoshie - switching to Python backend');
+        return pythonBackend.sendMessage('Soshie', `${postType}: ${content}`);
+    },
+    triggerDexter: async (leads: any[], taskId: string) => {
+        console.warn('[DEPRECATED] Using legacy n8n.triggerDexter - switching to Python backend');
+        return pythonBackend.sendMessage('Dexter', `Process leads: ${JSON.stringify(leads)}`);
+    },
+    getSystemStatus: async () => {
+        console.warn('[DEPRECATED] Using legacy n8n.getSystemStatus - switching to Python backend');
+        return pythonBackend.getSystemStatus();
+    }
+};
+
 
 export default api;

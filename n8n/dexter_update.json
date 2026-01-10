@@ -1,0 +1,241 @@
+{
+    "name": "Dexter - AI Chief of Staff (Updated)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "dexter-chat",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Chat Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "options": {
+                    "systemMessage": "Du är Dexter, Chief of Staff.\nDu har nu tillgång till en 'Second Brain' (Gemini) för komplex analys, och kan kontakta 'Mother' (Central Intelligence) för övergripande beslut.\nAnvänd dina verktyg klokt."
+                }
+            },
+            "id": "ai-agent",
+            "name": "Dexter AI Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.0,
+            "position": [
+                220,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "model": "gpt-4o"
+            },
+            "id": "openai-model",
+            "name": "OpenAI Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1,
+            "position": [
+                220,
+                240
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "openai-credentials",
+                    "name": "OpenAI Account"
+                }
+            }
+        },
+        {
+            "parameters": {},
+            "id": "memory-window",
+            "name": "Window Buffer Memory",
+            "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+            "typeVersion": 1,
+            "position": [
+                380,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "toolDescription": "Används för att läsa/boka i Google Kalender.",
+                "calendarId": "primary"
+            },
+            "id": "tool-calendar",
+            "name": "Google Calendar Tool",
+            "type": "@n8n/n8n-nodes-langchain.toolGoogleCalendar",
+            "typeVersion": 1,
+            "position": [
+                540,
+                240
+            ],
+            "credentials": {
+                "googleCalendarOAuth2Api": {
+                    "id": "google-calendar-credentials",
+                    "name": "Google Calendar Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "toolDescription": "Används för Gmail.",
+                "calendarId": "primary"
+            },
+            "id": "tool-gmail",
+            "name": "Gmail Tool",
+            "type": "@n8n/n8n-nodes-langchain.toolGmail",
+            "typeVersion": 1,
+            "position": [
+                680,
+                240
+            ],
+            "credentials": {
+                "gmailOAuth2": {
+                    "id": "gmail-credentials",
+                    "name": "Gmail Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-pro",
+                "options": {}
+            },
+            "id": "gemini-model",
+            "name": "Google Gemini Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                220,
+                450
+            ],
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "google-gemini-credentials",
+                    "name": "Google Gemini Account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "name": "consult_gemini",
+                "description": "Call this tool to get a second opinion or analysis from Google Gemini (Advanced Reasoning)."
+            },
+            "id": "tool-gemini",
+            "name": "Consult Gemini",
+            "type": "@n8n/n8n-nodes-langchain.toolChain",
+            "typeVersion": 1,
+            "position": [
+                380,
+                450
+            ]
+        },
+        {
+            "parameters": {},
+            "id": "chain-gemini",
+            "name": "Gemini Chain",
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1,
+            "position": [
+                540,
+                450
+            ]
+        }
+    ],
+    "connections": {
+        "webhook-trigger": {
+            "main": [
+                [
+                    {
+                        "node": "ai-agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "openai-model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "ai-agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "memory-window": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "ai-agent",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "tool-calendar": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "ai-agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "tool-gmail": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "ai-agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "gemini-model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "chain-gemini",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "chain-gemini": {
+            "ai_chain": [
+                [
+                    {
+                        "node": "tool-gemini",
+                        "type": "ai_chain",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "tool-gemini": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "ai-agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

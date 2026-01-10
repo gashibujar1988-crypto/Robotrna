@@ -1,0 +1,37 @@
+{
+    "name": "Mother - Central Hive Mind",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "mother-core",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "id": "mother-webhook",
+            "name": "Mother Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                0,
+                0
+            ]
+        },
+        {
+            "parameters": {
+                "content": "Detta är Mother-logik. Här kan du bygga orkestrering senare.",
+                "height": 200,
+                "width": 300
+            },
+            "id": "mother-note",
+            "name": "Note",
+            "type": "n8n-nodes-base.obsidian",
+            "typeVersion": 1,
+            "position": [
+                200,
+                0
+            ]
+        }
+    ],
+    "connections": {}
+}

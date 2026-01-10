@@ -1,0 +1,162 @@
+{
+  "name": "Dexter - AI Chief of Staff",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dexter-chat",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "Du är Dexter, en avancerad AI-assistent och 'Chief of Staff'.\nDin uppgift är att organisera användarens liv och arbete.\nDu har tillgång till kalender, mail och mötesverktyg.\nVar proaktiv, professionell och effektiv.\nOm du behöver boka möten, kolla alltid kalendern först."
+        }
+      },
+      "id": "ai-agent",
+      "name": "Dexter AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.0,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "model": "gpt-4o"
+      },
+      "id": "openai-model",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [
+        220,
+        220
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-credentials",
+          "name": "OpenAI Account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "memory-window",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1,
+      "position": [
+        360,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Används för att läsa, skapa och uppdatera händelser i Google Kalender.",
+        "calendarId": "primary"
+      },
+      "id": "tool-calendar",
+      "name": "Google Calendar Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolGoogleCalendar",
+      "typeVersion": 1,
+      "position": [
+        500,
+        220
+      ],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "google-calendar-credentials",
+          "name": "Google Calendar Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Används för att läsa, skicka och hantera e-post via Gmail."
+      },
+      "id": "tool-gmail",
+      "name": "Gmail Tool",
+      "type": "@n8n/n8n-nodes-langchain.toolGmail",
+      "typeVersion": 1,
+      "position": [
+        640,
+        220
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-credentials",
+          "name": "Gmail Account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "webhook-trigger": {
+      "main": [
+        [
+          {
+            "node": "ai-agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "openai-model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "ai-agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "memory-window": {
+      "ai_memory": [
+        [
+          {
+            "node": "ai-agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "ai-agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tool-gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "ai-agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
